@@ -1,0 +1,2397 @@
+// ==UserScript==
+// @name            Factorum
+// @namespace       https://w.amazon.com/bin/view/Factorum/
+// @sourcecode      https://axzile.corp.amazon.com/-/carthamus/download_script/job-finder-phone-tool-who's-hiring!%3F!.user.js
+// @sourcecoderepo  https://amazon.awsapps.com/workdocs/index.html#/folder/33edc8dbff3e4dd29b0869c60bfc2455ae9d4c815e0ac758c043426afd5b6fd4
+// @version         4.2.6.3
+// @description     Adds open roles/jobs to the phonetool tree using Amazon.Jobs
+// @author          cctaylor@
+// @include         https://connect.amazon.com/users/*
+// @include         https://phonetool.amazon.com/users/*
+// @include         https://admindirectory.corp.amazon.com/users/*
+// @connect         phonetool.amazon.com
+// @connect         connect.amazon.com
+// @connect         openlarp.corp.amazon.com
+// @connect         openlarp_dev.corp.amazon.com
+// @connect         amazon.jobs
+// @connect         idp-eu-west-1.federate.amazon.com
+// @connect         idp-us-west-2.federate.amazon.com
+// @connect         idp-us-east-1.federate.amazon.com
+// @connect         idp.federate.amazon.com
+// @connect         kerb-us-west-2.ant.amazon.com
+// @connect         kerb-us-east-1.ant.amazon.com
+// @connect         kerb-eu-west-1.ant.amazon.com
+// @connect         amazon.com
+// @connect         ekarulf.corp.amazon.com
+// @icon            https://img.icons8.com/?size=80&id=ynMImPRSKQhK&format=png
+// @grant           GM.xmlHttpRequest
+
+// @grant           GM_setClipboard
+// @story           It all started with one night of coding! 9/19/2019
+// @versionNotes    4.0.0.0 Moves to the Amazon.jobs API, adds a notification spot
+// @updateURL       https://axzile.corp.amazon.com/-/carthamus/download_script/job-finder-phone-tool-who's-hiring!%3F!.user.js
+// @downloadURL     https://axzile.corp.amazon.com/-/carthamus/download_script/job-finder-phone-tool-who's-hiring!%3F!.user.js
+// ==/UserScript==
+// Note: The version string must be formatted YYYYMMDD to help Greasemonkey's version compariason log
+let CodeVersion = '4.2.6.3'; //used for tracking analytics
+
+//Add additional CSS to the document
+let newCSS = `
+    :root {
+        --bluefont:  #0088cc;
+        --texthover:  #ff5522;
+        --toggleBackground:  #96F321;
+        --textShadow:  #FFFFFF;
+    }
+
+    .TableProperty{justify-content:left;}
+    .user-information {overflow:inherit !important; line-height:15px;}
+    .org-chart {overflow:inherit;  } /*display: inline-block; */
+    .badge-photo { margin: 2px 0px 0px 5px !important; }
+    .unexpandedManager { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAwCAYAAABjezibAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAF+SURBVFhH7ZgxroJAEIbnYSU9BcbODm9AYm/FEWy9knaewSvIEYDQ2Bn1BCQU6su/rhH38Qxk3rxYzNfs7O4EvwzMQqRbR1arlY3+F48+HBXkooJcVJCLCnJRQS4qyEUFuXy84Bc+Cm38lvV6Tcvl0s76czqdKM9zM1ZVRb7vUxiGNJ1Ozfgb4hW8Xq+02+1ou93Sfr83cgAj5ljH/uVyMesu4oL48aIo7Kwd7KdpameviAqez2cqy9LO7sxmM/OoYGyCPOS7iApmWWajbrTliwoeDgcb3SvnVs1dOx6PNnrSq4s5vDsBmtd280SPmc1mQ3Vdm7hZqSiKXhoHjQSGwyEtFgsTPxC9xePx2EZ3iYfIA3dtNBrZ6ImoIA7hPrTliwriDYHb2QQVw+PiVhN5bW8UUUEQx/EPSRfsI68NccHBYGAaJEkSmkwmphGA53kUBAHN53Ozj7xW0MVd+Ot/t7peT7yCXFSQiwpyUUEuKshFBbmoIBcV5KKCPIi+Ab4ewier3EVAAAAAAElFTkSuQmCC); }
+    .unexpandedManager-bottom { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAwCAYAAABjezibAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAF0SURBVFhH7ZixjoJAEIbn6KClkpjYS2ln4qvQ8krS8Qy+AjwCGho7gzwBxkLv8i9LxA3nwU32zmK+Zmd2J/Jl1l2M9DmS7Xaro7/FoTdHBLmIIBcR5CKCXESQiwhyEUEuby/4gR+FOn5JkiQUx7HOpnM+n2m/36uxaRryPI9msxmFYajG77Dewfv9TlmW0W63o+PxqOQARuSYx/rtdlPzJtYF8fDD4aCzYbCe57nOnrEqWNc1lWWps5bNZqO+Khj7oA71JlYFi6LQ0TiG6q0Knk4nHbWdM7tmzlVVpaMHk04xh1c3QP+zzbrRgr8hTVO6Xq8q7ndquVw+HRwcJOC6LkVRpOIOq1s8n8911Ep0Ih3mXBAEOnpgVRCX8BSG6q1uMUCHfroHAbbdPETAagfBer1WD38F1lE3hPUOdnTvYlwll8uFHMch3/dptVrRYrHQVQNA8D8Y+2+Z9S3mIoJcRJCLCHIRQS4iyEUEuYggFxHkQfQFs4bOWCI5b2YAAAAASUVORK5CYII=); }
+    .leafManager { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAwCAYAAABjezibAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAD3SURBVFhH7dgxCoNAEIXhSQpPIiLincTKKykW4hn0KCIqnsQmYSabLqySF5YU72t2Zwv5MRBY5XFRXdduF9Zd/hwDUQxEMRDFQBQDUQxEMRDFQBQDUUEDl2WRcRylbVtbdT4TLFBj5nmWJEmkKApbdT6LDBa477vkeW5hURTZqrOe+9z0auf2Xk3TuN33yrK0uLfjOKTrOqmqyp18YJfPC9B78TAMj3Vd3fSis577BPuJ4ziWaZpk2zZ7c7rqrOc+wQLTNJUsyyys73tbddZzL/cmT/3608fV5wX9H/wGA1EMRDEQxUAUA1EMRDEQxUAUA1F/HijyBHVbGS0pOL+cAAAAAElFTkSuQmCC); }
+    .leafManager-bottom { background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAwCAYAAABjezibAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAD3SURBVFhH7dg9CoNAEIbhSQrvYO8PeCjByispCF5Cr6Io9t7BJslMNhBEgvCFbIrvadbZNC+uCRi5nVRVlbv6rav8OQaiGIhiIIqBKAaiGIhiIIqBKAaivAVO0yR930vTNLbqfMRLoMaM4yhxHEue57bqfBTpJXBZFsmyTJIkkSAIbNVZ9/cu+mrnrj+q69pdfUdRFBb3sm2btG0rZVm6HcdePn+s67rb4zjd9KSz7u95OeIoimQYBpnn2e6crjrr/t7pI/42/ULoM7euq4RhaHFpmrpP39h99ODsXyn8oUYxEMVAFANRDEQxEMVAFANRDEQxECNyBzK4H79nH0R7AAAAAElFTkSuQmCC); }
+    .indirectOpenRoles {  height: 47px !important; }
+
+    /*Ads */
+    .AdsRoles {  display:block; }
+    .AdsFloatingHeader {position: -webkit-sticky; position: sticky; top:0; background-color: rgba(255,255,255,.8); border: 1px solid rgb(204, 204, 204); border-top: 0px;padding-left: 7px; padding-bottom: 3px; width: 80%; margin-left: 15%; margin-right: 10%; z-index: 1000; margin-top: -62px; max-width: 1800px; margin-bottom: 3px; transition: height .1s; min-width: 912px;}
+    .AdsFloatingPromo {position:relative; top:-62px; background-color: rgba(255,255,255,.8); border: 1px solid rgb(204, 204, 204); border-bottom: 0px; padding-left: 7px; padding-bottom: 3px; width: 80%; margin-left: 15%; margin-right: 10%; z-index: 1000; max-width: 1800px; height: 17px; transition: height .1s; min-width: 912px;}
+    #Ads_PostDate { position: absolute; top: 20px; right: 20px; color: #aaa; font-style: italic;font-size: 10px;}
+    #Ads_Refer { position: absolute; top: -16px; right: 83px; }
+    .AdsLabel_span { display:inline-flex; padding-left:15px; position: relative; top: -25px;}
+
+    .closable { position:relative; }
+        .closable:hover .closeX { color:#000; }
+    .closeX { position:absolute; top:3px; right:8px; -webkit-transition: width .3s; transition: width .3s; cursor:pointer; font-style: italic; }
+
+  /* Menu */
+    #menu { list-style:none; margin:-10px auto 0px auto; }
+    #menu li {float:left;display:block;text-align:center;position:relative;padding: 4px 10px 4px 10px;margin-right:30px;margin-top:7px;border:none; z-index: 1001; }
+    #menu li a {font-family:Arial, Helvetica, sans-serif;font-size:14px; color: var(--bluefont);display:inline-block;outline:0;text-decoration:none; margin-right: 15px}
+    #menu li input {width: 15px;padding: 2px;text-align: center;height: 10px;margin-top: 2px; position: absolute; right: 36px;}
+    #menu li input:focus {width: 15px;padding: 2px;text-align: center;height: 10px;margin-top: 2px; position: absolute; right: 36px;}
+    #menu li label {position: absolute; right: 34px;}
+    #menu li:hover a {color: var(--texthover);text-shadow: 1px 1px 1px var(--textShadow); }
+    #menu li .drop {padding-right:21px;}
+    #menu li:hover .drop {}
+    .dropdown_4columns {width: 600px; margin:4px auto;float:left;position:absolute;left:-999em; /* Hides the drop down */text-align:left;padding:10px 5px 10px 5px;border:1px solid #777777;border-top:1px solid #FFF;   /* Gradient background */background:#F4F4F4;background: -moz-linear-gradient(top, #EEEEEE, #BBBBBB);background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#EEEEEE), to(#BBBBBB)); /* Rounded Corners */-moz-border-radius: 0px 5px 5px 5px;-webkit-border-radius: 0px 5px 5px 5px;border-radius: 0px 5px 5px 5px; }
+    #menu li .dropdown_4columns:focus-within { left:-1px;top:auto; }
+    #menu li:hover .dropdown_4columns { left:-1px;top:auto; margin-top:3px; }
+    /* Columns */
+    .col_1,.col_2,.col_3,.col_4,.col_5 { display:inline; float: left;position: relative;margin-left: 5px;margin-right: 5px; }
+    .col_1 {width:190px;}
+    .col_2 {width:400px;}
+    .col_3 {width:410px;}
+    .col_4 {width:590px;}
+    /* Right alignment */
+    #menu .menu_right { float:right;margin-right:0px;}
+    #menu li .align_right {/* Rounded Corners */-moz-border-radius: 5px 0px 5px 5px;-webkit-border-radius: 5px 0px 5px 5px;border-radius: 5px 0px 5px 5px;}
+    #menu li:hover .align_right { left:auto;right:-1px;top:auto; }
+    /* Drop Down Content Stylings */
+    #menu p, #menu h2, #menu h3, #menu ul li {font-family:Arial, Helvetica, sans-serif;line-height:21px;font-size:12px;text-align:left;text-shadow: 1px 1px 1px var(--textShadow);}
+    #menu h2 {font-size:21px;font-weight:400;letter-spacing:-1px;margin:7px 0 14px 0;padding-bottom:14px;border-bottom:1px solid #666666;}
+    #menu h3 {font-size:14px;margin:7px 0 14px 0;padding-bottom:7px;border-bottom:1px solid #888888;}
+    #menu p {line-height:18px;margin:0 0 10px 0;}
+    #menu li div a {font-size:12px;color: var(--bluefont);}
+    #menu li:hover div a {font-size:12px;color: var(--bluefont);}
+    #menu li:hover div a:hover {color:var(--texthover);}
+    #menu li .black_box {background-color:#B8E1EB;color: #000;text-shadow: none;padding:4px 6px 4px 6px; /* Rounded Corners */-moz-border-radius: 5px;-webkit-border-radius: 5px;border-radius: 5px; /* Shadow */-webkit-box-shadow:inset 0 0 3px #000000;-moz-box-shadow:inset 0 0 3px #000000;box-shadow:inset 0 0 3px #000000;}
+    #menu li ul {list-style:none;padding:0;margin:0 0 12px 0;}
+    #menu li ul li {font-size:12px;line-height:24px;position:relative;text-shadow: 1px 1px 1px var(--textShadow);padding:0;margin:0;float:none;text-align:left;width:210px;}
+    #menu li ul li:hover {background:none;border:none;padding:0;margin:0;}
+    #menu li .greybox li {border:1px solid #bbbbbb;margin:0px 0px 4px 0px;padding:4px 6px 4px 6px;width:116px; /* Rounded Corners */-moz-border-radius: 5px;-webkit-border-radius: 5px;border-radius: 5px;}
+    #menu li .greybox li:hover {border:1px solid #aaaaaa;padding:4px 6px 4px 6px;margin:0px 0px 4px 0px;}
+    .dropdown-menu {border-radius: 0px;z-index: 10002; }
+
+    /* The switch - the box around the slider */
+    .switch { position: relative;      display: inline-block;      width: 20px;      height: 11px;    }
+    .switch input {  opacity: 0;  width: 0;  height: 0;} /* Hide default HTML checkbox */
+    /* The slider */
+    .slider {  position: absolute;  cursor: pointer;  top: 0;  left: 0;  right: 0;  bottom: 0;  background-color: #DDD;  -webkit-transition: .2s;  transition: .2s; }
+    .slider:before {   position: absolute;  content: "";  height: 11px;  width: 11px;  left: 1px;  bottom: 0px;  background-color: white;  -webkit-transition: .2s;  transition: .2s;}
+    input:checked + .slider {   background-color: var(--toggleBackground);} /*True*/
+    input:focus + .slider { box-shadow: 0 0 1px var(--toggleBackground); }
+    input:checked + .slider:before {  -webkit-transform: translateX(14px);  -ms-transform: translateX(14px);  transform: translateX(14px); }
+    /* Rounded sliders */
+    .slider.round {  border-radius: 34px; }
+    .slider.round:before {  border-radius: 50%; }
+
+    /*Turn off the ugly text select */
+    .noselect {-webkit-touch-callout: none; /* iOS Safari */-webkit-user-select: none; /* Safari */-khtml-user-select: none; /* Konqueror HTML */-moz-user-select: none; /* Old versions of Firefox */-ms-user-select: none; /* Internet Explorer/Edge */user-select: none; /* Non-prefixed version, currentlysupported by Chrome, Opera and Firefox */}
+
+    /*Thumbs*/
+    .WorkagainThumb {font-size:15px !important; opacity:1;  cursor:pointer; line-height: 13px; border-bottom: none !important}
+    .WorkagainThumb:hover {opacity:1 !important;  border-radius: 5px; height: 15px; }
+    .ThumbsUp:hover { background-color: var(--toggleBackground); }
+    .ThumbsDown:hover { background-color: #C0392B; }
+    .SelectThumb   { opacity:1; }
+    .NoSelectThumb { opacity:.3;}
+    .ManagerLikesList {float:left; display:none; position:relative;}
+    .HidUpLikes {cursor:pointer; position:relative; }
+    .HidUpLikes::after {content: "";position: absolute;top: 1px;left: 3px;border-width: 6px;border-style: solid;border-color: transparent transparent rgba(152, 152, 152, 1) transparent;  }
+    .HidUpLikes:hover:after { border-color: rgba(230, 230, 230, 1) rgba(230, 230, 230, 1) rgba(152, 152, 152, 1) rgba(230, 230, 230, 1); }
+
+    /*TODO: change the css if this user already liked */
+    .HidUpLiked {cursor:pointer; position:relative; }
+    .HidUpLiked::after {content: ""; position: absolute;top: 1px;left: 3px;border-width: 6px;border-style: solid;border-color: rgba(152, 152, 152, 1) transparent transparent transparent;  }
+    .HidUpLiked:hover:after { border-color: rgba(152, 152, 152, 1) rgba(230, 230, 230, 1) rgba(230, 230, 230, 1) rgba(230, 230, 230, 1); }
+
+    .ActualUserLikes{ text-align: center; width: 100%; line-height: 15px; position:relative; top:15px; width:15px;}
+    .HidUpLikesText {cursor: default;font-family: 'Roboto', sans-serif !important;font-size: 11px;color: #999;line-height: 11px; position:absolute; top:32px;}
+
+
+    /*Tooltip*/
+    .tooltipJF { position: absolute;top: 3px;font-size: 70%;color: #08C;left: 15px;cursor: pointer;background-color: #DDD;border-radius: 10px;width: 6px;height: 8px;line-height: 1;text-align: center;}
+    .tooltipJF:hover { color:blue; }
+    .tooltipJF .tooltipJFtextPushout {visibility:hidden; position: relative; color: #555;text-align: center;padding: 3px 0px 8px 3px; border-radius: 6px;z-index: 1;opacity: 0;transition: opacity .3s;border: 1px solid #DDD;font-weight: normal; width: 510px;  background-color: rgba(250,250,250,.9); font-size: 10px; text-align: left; line-height: 14px; }
+    .tooltipJF:hover .tooltipJFtextPushout {visibility:visible; opacity: 1; }
+    .tooltipJF-bottom {top: 135%;left: 50%;margin-left: -60px;}
+    .tooltipJF-bottom::after {content: ""; position: absolute; top:-22px; left:60px; margin-left:-12px; border-width:11px; border-style:solid; border-color: transparent transparent #DDD transparent;}
+
+    /* Support for other scripts */
+    .additional-attributes {    position: relative; top: -26px; left: 158px; }
+    .row-fluid .span6 (1) { min-width: 775px; width:68.88297% !important; }
+    .row-fluid .span6 (2) { width:38.88297% !important;}
+    #calendar-container {zoom:75%;}
+    .fc-time-grid-container { height:300px !important; }
+    .typeahead-dropdown { background-color: white; z-index: 99999; }
+
+    /*Fix the width of the heirarch*/
+    div.employee-container > div.row-fluid > div.span6:nth-child(1) { min-width: 730px !important;}
+    div.employee-container > div.row-fluid > div.span6:nth-child(2) { max-width: calc(99% - 750px) !important;}
+
+    .Copylink { display: inline-block;color: purple;text-decoration: none;letter-spacing: .8px;text-transform: capitalize;cursor: pointer;min-width: 70px;padding-left: 3px;padding-top: 2px;}
+    .Copylink:hover {font-weight: 900;}
+
+    /*Fix other scripts that break Factorum */
+    .additional-attributes { display:none; }
+    .direct-reports-number .muted {  display:none !important;}
+    .user-information .muted {  display:none !important;}
+    .org-chart-row .muted {  display:none !important;}
+
+    /* All Inputs */
+    input:focus {background-color: ivory;}
+    /*input:focus ~ input{background-color: ivory;}*/
+    select:focus {background-color: ivory;}
+    textarea:focus {background-color: ivory;}
+
+    .loadingEllipsis:after {overflow: hidden;display: inline-block;vertical-align: bottom;-webkit-animation: ellipsis steps(4,end) 900ms infinite;animation: ellipsis steps(4,end) 900ms infinite;content: "…"; width: 0px;}
+    @keyframes ellipsis {to {width: 20px;}}
+    @-webkit-keyframes ellipsis {to {width: 20px;}}
+
+    /*Tags container */
+    .typeahead-dropdown {position: absolute;width: 310px;top: 90%;display: inline-block;text-overflow: ellipsis;overflow: hidden;white-space: nowrap;font-size: 12px;max-height: 250px;overflow-y: scroll;overflow-x: hidden;background-clip: padding-box; }
+    .search-box:focus-within { background-color: ivory;}
+    .ParentTags { font-size: 12px; padding-left: 5px;display: flex; }
+    #ParentTags:hover { background-color: rgb(0 153 255 / 50%); color:#fff; cursor:pointer; }
+    .tagCategory { display:flex;}
+    .tagCategory:hover { background-color: rgb(0 153 255 / 50%); color:#fff; cursor:pointer; }
+    .tagGroups { background-color: rgba(256, 256, 256, 0.8); padding: 3px 0px 3px 1px; border-radius: 4px; box-shadow: 4px 4px 4px 3px #ddd; margin-bottom: 15px; overflow: auto; transition: max-height 0.2s ease-out; max-height:250px; }
+    .tagItem { display:block;margin:4px 0 0 13px; min-width:255px; }
+    .tagContainer { padding: 3px 6px; background-color: rgb(0 153 255 / 50%); font-weight: bold; cursor:pointer; display:flex; margin-top: 3px;}
+    .tagContainer:hover {background-color: rgb(0 153 255 / 80%);}
+    .SecondaryDetails { transition: max-height 0.2s ease-out; max-height:1000px; }
+    #ThisTagContainerControl_Main:hover { color:red; cursor:pointer;}
+    .clickableitem {  cursor:pointer; }
+    .clickableitem:hover {  color: blue; text-decoration: underline; }
+    .clickableitem:active {color:white;}
+    .TagDescriptStyle { margin: 3px 3px 3px 8px;border: 1px solid black;padding: 2px 2px 2px 5px;font-style: italic;font-size: 80%; color:gray;min-height: 32px; white-space: pre;}
+    .TagDescriptStyle::first-letter {text-transform: capitalize; }
+    #NudgeFlag { display: none; color:#FEF; border-radius: 3px; min-width: 8px;background-color: rgb(255, 49, 83);text-align: center;font-size: 11px;padding: 2px 3px 0px;margin: 3px 3px 0px; cursor: pointer; right: -3%;position: absolute;}
+    #NudgeFlag:hover { background-color: rgb(229, 44, 74); color:#FFF; }
+
+    /*Div tables */
+    .dtable { display:table;table-layout: fixed;width:529px;    }
+    .drow { display:table-row; width:525px;    }
+    .dcell { display:table-cell; }
+    .dcell input select textarea { width: 122px;height: 10px;position: relative;top: 3px;left: 3px;}
+    .dfirstcell{ width:100px;}
+    #Description { width:100px;height:58px;
+    #Des_Content{ overflow-y: scroll;word-wrap: break-word;position: absolute;height:58px;width:425px;}
+
+    `;
+CreateCssClass(newCSS);
+
+//Global Variables
+let arrUser2 = (window.location.href).split("users/");
+let UserAlias = arrUser2[1];
+let JobString;
+let doOnce = -1;
+let doOnce2 = 0;
+let doOnce3 = 1;
+let ParentJobcnt = 0;
+let ChildJobcnt = 0;
+let JobList = []; //Contains the amazon jobs info
+let UserDetails = []; //contains the phonetool info
+let QueryReply = [];
+let localUser = '';
+let localUserID = '';
+let localUserNeeded = false;
+let localUserData = [];
+let pullmodeset = false;
+let JobHistorydata = [];
+let MyRatings = [];
+let UserLikes = [];
+let OpenRoleIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFwAAAB1CAYAAADDTIamAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABZ0RVh0Q3JlYXRpb24gVGltZQAwMy8yMS8yMjFxylYAAAAcdEVYdFNvZnR3YXJlAEFkb2JlIEZpcmV3b3JrcyBDUzbovLKMAAANh0lEQVR4nO2cbXAU533Af8/u3UnoTuJVrwFjJFnQ2mBhmdZgeVAmaCAZyJgJHwq2azrtgCdDZzxR4/hDGkPjdmJPRd0WZiyaTt1Mgr+QQiMmlSvcKIOonBQpskgYIyRBAEsICRDoTi+n2336Ye+ETneSbu9lT4b9fYFb7T333O+e/e/z8n9WSCklNpahpLsCjxq2cIuxhVuMY+qLvB+lqxoPL7f+NPy13cItxhZuMbZwi7GFW4xjrhOmB32bmYml02G3cIuxhVuMLdxibOEWYwu3GFu4xdjCLcYWbjG2cIuxhVuMLdxibOEWYwu3GFu4xdjCLcYWbjG2cIuxhVuMLdxibOEWYwu3GFu4xdjCLWbOvJRU0dreQe/Nfvpu9kf9e1lpCUUF+ZSVFltcs9RimfDem/2cbmjkfHsHbZ9eiPl9HrebivJ1VFVupKpyE9kedwprmXrE1C0n0TKHEs28ampu4fiJk6Ykz8b2rVvYt/dligryk1JeMonFX8paeGt7B7VH6ujs7klquac/OsPpj86wfesWag689oVr8UkXPuz1ceyDH/PhT0/Nep7H7aastJjVpSUR0i519dB3s3/WH+v0R2doam6h5sB+dmyrTkrdrSCpwju7ejj4g9oZRRXm51FVuYkd26pjuhkOe320tnfQ1Py/NDW34PX5wv7u9fk49M5hmppbOPhmzReitScthnd29bDv9TcipACUlRSze9eLCbXEYa+PD0+c5PiJUzN+Rt1776ZVeiz+kiK8qbmFv/rrv4k47nG72bf3ZfbsenHOMkZ1/UGlMAYIqhCoQoSdN+z1UXvkfU5/dCaijHRLj8VfwgOfUBiZTllJMcd/eDQm2UCYWE1KJqRkTNcZ0TT8uk6oVWR73Bx8s4a///738LjDxXZ297D/9TcY9kZeAfOFhIQPe31Rw8j2rVs4/sOjprpuLiFYoCgsUBTcqkqWqpKhKAghmJAyQnxV5UaOvfcuZSXh94LO7ugNYL6QkPCa7x6KKvvgmzUJVQqMsOKY8iOoQfFjuo4ejIJlpUYImS79l+daOH5i9l5Suohb+PETpyIGM5uf35gU2dNRhCBTUchQFHQpGdV1AkHpoRAzPbwcPlpH7wzTBukkLuGhvvZUCvPzUiJ7Kg4hyFJVFCEYnyK9rLSY2re/F3H+fAwtcQmvPfJ+RCixqh8sgExFmZQeCi8V5evY9+pLYee2fXqB1vaOlNfJDKaFD3t9NDW3hB3bvnULFeXrklapuQhJBxibciPdvWsnhfl5YefWTbsS041p4fUNjRGtu+bAa0mrUKyEpEtgItiHz/YY/f6ptH16YV7FctPCTzc0hr3evnVL2gYaqhA4gr2XUCvfsa06opVPr3NM6AHk2B20Sz8l0PEvBFr/kUDbUQK/+wD9xlnQxuOqc+xzKf779N4ZjZgn2bNrZ1wfnCxcikIg2EfPCIaZqspNYZNnTc0tES1/JuTwDbTO/0S/cwnp7YOxuzDhA20ChAoOF5prISJnOY51f4ZS9Mem6huz8MD59/jVJ78PO1aYn5f2FZlQfz0gJa7g6x3bqsOEd3b3MOz1zX4lan4C7cfQe3+NPnjREKxkgOoAFOP/gVHwj8DIEPL2JTRXTuqEi7y1tHWdDztW9by5D0sValC4JiUOISgrLaYwP4++/luT57S2d1BVuXHGMuSdTvD1IrILcBSUQ0YOwukGNQOkDv77aLc6kH2/QY4OgTMLZMB0XWMWrpbupF80Alcmj5W7ryAHfovIfRKjbaUHhxCMw6RwMNZEpwrv7OqeVbjIfQpH7t/N+jmqPkHg3PcJXP45aH7IyDFdV1M3zbaLV8Je593+Bf5zbxP49WH0vv8D0veAOEUI9CmvV08LdXH1VAKj6Hc+A6kFP8QJWXnGv4oD4S4yXWRCCxBlJY+jD1xE3rsGVz5GzV+HWvI1xJInEO7CRIo2jQKTI0+AwmkTZ2aEy/vX0Ht/hXa1EentxfFH30Z9bDP47yG9vTA2hFi8EjX3D03XMyHhzsrvEvhNHXr/BRgZROtuRPv8E5SlqxFLylDy16Lkb0BkLk7kY2JiekAzvch8/yr6zTa0vvPoQ1eQAxfBP4LIX4fIWGicMzGGfu8GcsKHunQNYnml6XomJFzJK8f5wiG0y/Vol+uR9z+HcR9673m49Vv06+fA9ROUnBWG/C9tQizIBdUFIrk5SEIIiPWZl1IHzY9+9zKy/zx6/++MljtyC/1+L3JiDOHJRV31FRxrX0HkPQ2APnwDvH2InCKUVVviqmfCa5oiKw/H03+Okl+OdvlnaNfOwviwMXAY7gP5Odrdy+h95xGfnYIFi1GWFKMUPofIXg5ON8KZBc7EBk9OIXCq6swn6BPIu11G/3qgA/12N9J3C8bvIP0+YyCjS1AdKMs34Cj9GuqTLxt9bwCpoV39b+TwdZQVG013B0MkJHxq31YpqEAsLkMprEDrbkC/exXGhzAudoEcu4ccGQSpofe1IXqaEJk5iMyFkLUUZVEpuHMRmbmIjBzEomLjSogDee8an7X9IvzYUA8TH38bffQ2jA0ZvQyhgOIAXQOXG5G1DFFQgfOZ/YjsFeGFauPI/gsIpxv1sc3GlRoHpoR73O6weZTOru6wSSuRkY1a+nXUx76MdvUM2u+bkPevGzdVoYAjExAgNeTIANJ3E5CgONCcnyAUhzHQEA5QFOPHyFwIziyE4jR6B6oLlGCr0wJGy9XGYNwLAR+M3UOOj3DvohZW99IFg+i37xrvFQ6jLto4OBegLHockbcOtfSrKHnridbF1Xr+Czl0FVH0LOqTr5jRFoYp4WWlxWGLDpe6eqLPErqyUct2opbtRL9xlsDVj5G3O5F3uggJNkZwzgfv0UaD44hgHBYC6b0FQhqHRPBv08O0ePAWhHE1IXXabmSFlZ+dqQQHMRpoo4gFSxDLnkV5bDNq0bOIJX8w63fXr3yMWLYax4bXH4SZODAlfHVpSZjw1vaOOReJleUv4Fr+AvLeFbRrZ9EHLiCHriBHB8HvIxRyECJ4Iw3+Hx40tMkGN8PgSkz9m2G/vd8Zdsr6/IARwjxFiML1KAUbUAsrwBXb4EWs/Arq0jKUpbP/MHNhSnhF+bqwOQozk/ti4Soca1eBDKD3nkcfvg53OtGHeoyWPOFDTowAEnTCJYoI80w2a0mwd/Kg6Z+9Fvm1Nmx7BbGoGKVgPSLLfF6iY803TL8najlmTp4ePrw+YzFitiFzBMKB8qXnUHgOxoaQY7eR48NIXx/6wAW4fx3ddwvGfaAHAN0QKkPjyMn4EixPeRCXVRe4F3O2ww8MTp6y+bn1OJ75ppmvmjJMCc/2uNn8/EZ+ee7Bis/xEyfNCZ9K5iJE5qKgvnLUx6shMIbU/MbE0Ogdo688PhScIh03jguHMXvncIHLg5KzErFwFaDQNzjEz9/9y7CPqdr85fjqlwJMdwurKsOFh9YNk7LEpjjA5XnQfrPyUJeuMVXE6f9pCHvtcbupqtyUeN2ShOnhXrQVldojdUmrUCL03uzn2L//JOzYjm3V8yrJM67x9fTVk87unnmReBMtLWJ3jKl2VhGX8B3bqiOynQ4fraOzK7nJ92Y49sGPIxKT9r360rzbKRH3DFLNgf0Rx/alKZGyvqExIpQU5uexO83rrdGIW3i0xBuvz2d59mpTcwuH3jkccbz27bfmVewOkdAc6b69L0fNXt3xJ69aEl7qGxqj5qXv3/tS2he3ZyLhSelo2aten5HGXB9PPkgMDHt9HPxBbdSWXbJyBbrfz8DgYJR3pp+EhWd73DNKP/TOYfa9/kZSM5+amlvY8xffjLoDomTlCio3PIPf7+c/Tv6MgcFB6hsaU/bDx0PS9vgMe434PdOGqu1bt7Bn1864L/X6hkY+PHFqxvKfWvMEFU+FrzHmLFzIP/+r8aXe+s63Ur7bzbI9PlOpPVI365bB0E62qsqNlEXZMhii92Y/re0dwV1skTvYQnjcRn74k2ue4OSpesbHjRQ0T3Y2R/8tPJEz1dLTIhyMy772yPtheSEzEdqvGcLr9cW8mfaZp9dy8M2ayb72wOAgJ0/V43S5ImSHSKX0tO1ErqrcaEzlzrLNL4TX5zO9LbwwP4+aA69FTJrlLltGbkEBf1v7TzO+N3SjTddm2pTvtR/2+qhvaOR0Q2PC28A3P7+RPbtenHGirPdmP1/fvTemslLR0tMWUmais6uH88G43NreMWvLB6MlV5SvCz5NIrYnSdQ3NEbtLkYj2dLnnfBoRFs1yvZ4Ehq4pEt6Wp8mESup2KoSEhiLdKtj+kP7CKYd26p56zvfiuncQ+8ctmxw9NAKh/kp/aEWDvNP+kMvHOaX9EdCOMwf6Y+McJgf0h8p4ZB+6Y+ccEiv9EdSOKRP+iMrHNIj/ZEWDtZLf+SFg7XSbeFBrJJuC5+CFdJt4dMwK33605HmwhYeBTPSzT7IzBY+A7FKLyo0l51rC5+FuaSXlRZT9w/vmirTFj4HM0kPyTaboWsLj4Hp0uOVDfNgEfmLwo5t1RQV5NP66QV2f+PFuHPPbeEmCOXIJIIdUizGFm4xtnCLsYVbzJw3zWj5cjbxY7dwi7GFW4wt3GJs4RYTlpBvk3rsFm4xtnCL+X//cKtJdbI0GAAAAABJRU5ErkJggg==";
+let LoadAttempts = 0;
+let OpenLarpURL = 'https://openlarp.corp.amazon.com';
+
+
+let MonthName = {
+    0: 'January',
+    1: 'February',
+    2: 'March',
+    3: 'April',
+    4: 'May',
+    5: 'June',
+    6: 'July',
+    7: 'August',
+    8: 'September',
+    9: 'October',
+    10: 'November',
+    11: 'December'
+}
+
+//Detect the browser
+let isOpera = (!!window.opr && !!opr.addons) || !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0; // Opera 8.0+
+let isFirefox = typeof InstallTrigger !== 'undefined'; // Firefox 1.0+
+let isSafari = /constructor/i.test(window.HTMLElement) || (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })(!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification)); // Safari 3.0+ "[object HTMLElementConstructor]"
+let isIE = /*@cc_on!@*/false || !!document.documentMode; // Internet Explorer 6-11
+let isEdge = !isIE && !!window.StyleMedia; // Edge 20+
+let isChrome = !!window.chrome && (!!window.chrome.webstore || !!window.chrome.runtime); // Chrome 1 - 71
+let isBlink = (isChrome || isOpera) && !!window.CSS; // Blink engine detection
+
+//let localPullMode = '';
+//localPullMode = localStorage.getItem("localPullMode");
+let IndirectRolesViewCheck = 'checked';
+if (localStorage.getItem("IndirectRolesViewCheck") != null) {
+    IndirectRolesViewCheck = localStorage.getItem("IndirectRolesViewCheck");
+}
+
+let AdsViewCheck = 'checked';
+if (localStorage.getItem("AdsViewCheck") != null) {
+    AdsViewCheck = localStorage.getItem("AdsViewCheck");
+}
+
+let LowLevelFilter = '1';
+if (localStorage.getItem("LowLevelFilter") != null) {
+    LowLevelFilter = localStorage.getItem("LowLevelFilter");
+}
+
+let HighLevelFilter = '12';
+if (localStorage.getItem("HighLevelFilter") != null) {
+    HighLevelFilter = localStorage.getItem("HighLevelFilter");
+}
+
+let KeyWordFilter = '';
+if (localStorage.getItem("KeyWordFilter") != null) {
+    KeyWordFilter = localStorage.getItem("KeyWordFilter");
+}
+
+let LocationFilter = '';
+if (localStorage.getItem("LocationFilter") != null) {
+    LocationFilter = localStorage.getItem("LocationFilter");
+}
+
+
+let ChimeViewCheck = 'checked';
+if (localStorage.getItem("ChimeViewCheck") != null) {
+    ChimeViewCheck = localStorage.getItem("ChimeViewCheck");
+}
+let ActivityViewCheck = 'checked';
+if (localStorage.getItem("ActivityViewCheck") != null) {
+    ActivityViewCheck = localStorage.getItem("ActivityViewCheck");
+}
+let StartedViewCheck = 'checked';
+if (localStorage.getItem("StartedViewCheck") != null) {
+    StartedViewCheck = localStorage.getItem("StartedViewCheck");
+}
+let LocationViewCheck = 'checked';
+if (localStorage.getItem("LocationViewCheck") != null) {
+    LocationViewCheck = localStorage.getItem("LocationViewCheck");
+}
+let AccoladesViewCheck = 'checked';
+if (localStorage.getItem("AccoladesViewCheck") != null) {
+    AccoladesViewCheck = localStorage.getItem("AccoladesViewCheck");
+}
+let CTIViewCheck = 'checked';
+if (localStorage.getItem("CTIViewCheck") != null) {
+    CTIViewCheck = localStorage.getItem("CTIViewCheck");
+}
+let PronounceViewCheck = 'checked';
+if (localStorage.getItem("PronounceViewCheck") != null) {
+    PronounceViewCheck = localStorage.getItem("PronounceViewCheck");
+}
+let AmazonJobsPopup = '';
+if (localStorage.getItem("AmazonJobsPopup") != null) {
+    AmazonJobsPopup = localStorage.getItem("AmazonJobsPopup");
+}
+let AutoAuthJobsCheck = 'checked';
+if (localStorage.getItem("AutoAuthJobsCheck") != null) {
+    AutoAuthJobsCheck = localStorage.getItem("AutoAuthJobsCheck");
+}
+let AutoAuthJobsEscape = '0';
+if (localStorage.getItem("AutoAuthJobsEscape") != null) {
+    AutoAuthJobsEscape = localStorage.getItem("AutoAuthJobsEscape");
+}
+
+window.onload = function() {
+    //Detect if the users was not found
+    var elements = document.querySelectorAll('.inactive-warning');
+    if (elements.length > 0) {
+        UpdateInactivePage();
+        return;
+    }
+};
+
+// document.addEventListener('DOMContentLoaded', function() {
+//     //Detect if the users was not found
+//     var elements = document.querySelectorAll('.inactive-warning');
+//     if (elements.length > 0) {
+//         UpdateInactivePage();
+//         return;
+//     }
+// });
+
+
+if (IndirectRolesViewCheck == '') {
+    newCSS = " .indirectOpenRoles { height: 0px !important;} ";
+}
+CreateCssClass(newCSS);
+
+let Ad_IDshort = '';
+let Ad_IDshortArray = [];
+let Ad_IDshortList = localStorage.getItem("Ad_IDshortList");
+if (localStorage.getItem("Ad_IDshortList") != null) {
+    Ad_IDshortArray = Ad_IDshortList.split(",");
+}
+
+
+//Add the css above to the page
+function CreateCssClass(csstext) {
+    let style = document.createElement('style');
+    style.type = 'text/css';
+    style.innerHTML = csstext;
+    document.getElementsByTagName('head')[0].appendChild(style);
+}
+
+window.onresize = function() {
+  // Do something when the window is resized
+    //document.getElementById('FactorumOptions').innerHTML = 'test';
+    CreateOpenRoles();
+};
+
+//Create the Open Roles Row
+function CreateOpenRoles() {
+    let JobRowHeader = '<div style="flex: 1;font-size: 10px;color: #555;text-transform: uppercase;font-weight: bold;display: flex;justify-content: left;margin-right: 5px;width: 110px;">';
+    let OptionsText = '<span class="fa fa-cog"></span> Factorum Options';
+    let RightSpace = '2px';
+    if (window.innerWidth < 1550) {
+        OptionsText = '<span class="fa fa-cog"></span>';
+        RightSpace = '-11px';
+    }
+    let JobRowData = `
+    <div>
+        <div class="noselect">
+            <ul id="menu" style="margin-top: -18px;">
+                <li style="margin-right: 0 !important;padding-right: 0 !important;"><a href="#" id='TabOptionsSpacer' class="drop" style="font-size: 13px;margin-left: -15px;margin-right: `+RightSpace+`;">` + OptionsText + `</a>
+                    <div class="dropdown_4columns">
+                        <div class="col_4">
+                            <h2>Factorum Menu and Options</h2>
+                        </div>
+                        <div class="col_4">
+
+                            <p class="black_box"><b>Welcome to the Factorum script</b>. This script was primarily created to help folks see open job reqs, but later we found that other scripts use conflicting code to render their information. In effort to support those features this script has replaced 5 other scripts. Its usage continues to grow and its currently used 2+ million times a week, by over 70,000 users!</p>
+                            <p><b>Spread the word</b> - There is now a <a href="https://phonetool.amazon.com/awards/103384/award_icons/116963" target=_blank>Contributors <b>phonetool icon</b></a> for those who submit new feature requests or help 3 other people to install the script.</p>
+                        </div>
+                        <div class="col_1">
+                            <h3>Controls</h3>
+                            <ul>
+                                <li>Auto auth Amazon.jobs
+                                    <label id="AutoAuthJobsElement" class="switch">
+                                        <input type="checkbox" id="AutoAuthJobsCheck" style="display:inline-block"  `+ AutoAuthJobsCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Other Open Roles
+                                    <label id="IndirectRolesViewElement" class="switch">
+                                        <input type="checkbox" id="IndirectRolesViewCheck" style="display:inline-block"  `+ IndirectRolesViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Top Banner Roles
+                                    <label id="AdsViewElement" class="switch" checked style="display:inline-block">
+                                        <input type="checkbox" id="AdsViewCheck" `+ AdsViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Lowest Level
+                                    <input type="text" id="LowLevelFilter" value="`+ LowLevelFilter + `">
+                                </li>
+                                <li>Highest Level
+                                    <input type="text" id="HighLevelFilter" value="`+ HighLevelFilter + `">
+                                </li>
+                                <li>Key Word Filter <input type="text" id="KeyWordFilter" value="`+ KeyWordFilter + `" style="width: 70px;text-align: left;">
+                                </li>
+                                <li>Location Filter <input type="text" id="LocationFilter" value="`+ LocationFilter + `" style=" width: 70px;text-align: left;">
+                                </li>
+                                <li>Slack &#47; Link
+                                    <label id="ChimeViewElement" class="switch">
+                                        <input type="checkbox" id="ChimeViewCheck" style="display:inline-block"  `+ ChimeViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Wiki Activity Link
+                                    <label id="ActivityViewElement" class="switch">
+                                        <input type="checkbox" id="ActivityViewCheck" style="display:inline-block"  `+ ActivityViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Start Date Text
+                                    <label id="StartedViewElement" class="switch">
+                                        <input type="checkbox" id="StartedViewCheck" style="display:inline-block"  `+ StartedViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Location Text
+                                    <label id="LocationViewElement" class="switch">
+                                        <input type="checkbox" id="LocationViewCheck" style="display:inline-block"  `+ LocationViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Accolades Data Text
+                                    <label id="AccoladesViewElement" class="switch">
+                                        <input type="checkbox" id="AccoladesViewCheck" style="display:inline-block"  `+ AccoladesViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>CTI Link &#38; Icon
+                                    <label id="CTIViewElement" class="switch">
+                                        <input type="checkbox" id="CTIViewCheck" style="display:inline-block"  `+ CTIViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li>Pronounce Link &#38; Icon
+                                    <label id="PronounceViewElement" class="switch">
+                                        <input type="checkbox" id="PronounceViewCheck" style="display:inline-block"  `+ PronounceViewCheck + `>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                                <li id="li_Refresh" style="visibility:hidden;color: green;font-weight: bold;padding: 5px 0px 0px 20px;">
+                                    <a href="javascript:window.location.reload(true)" style="text-decoration: underline;margin-right: 0px;">Reload</a> page to apply
+                                </li>
+
+                            </ul>
+                        </div>
+                        <div class="col_1">
+                            <h3>Useful Links</h3>
+                            <ul>
+                                <li><u><a href="https://drive.corp.amazon.com/view/tvaroht@/public/userscripts/phonetool_availability_indicator/phonetool_availability_indicator.user.js" target=_blank>Add Availability Indicator</a></u></li>
+                                <li><u><a href="https://userscript.hyperbadge.amazon.dev/hyperbadge.user.js" target=_blank>3D HyperBadge</a></u></li>
+                                <li><u><a href="https://drive-render.corp.amazon.com/view/wael@/Experiments/PhoneTool%20Enhance/PhoneTool Enhance.user.js" target=_blank>PhoneTool Enhance Script</a></u></li>
+                                <li>-</li>
+                                <li><u><a href="https://w.amazon.com/bin/view/Factorum/" target=_blank>Factorum wiki </a></u></li>
+                                <li><u><a href="https://w.amazon.com/bin/view/Greasemonkey/PhoneTool" target=_blank>Other Phonetool Scripts</a></u></li>
+                                <li><u><a href="https://diagonalley.corp.amazon.com/PromoIntake.html" target=_blank>Promote a position</a></u></li>
+                            </ul>
+                        </div>
+                        <div class="col_1">
+                            <h3>Interview Aids</h3>
+                            <ul>
+                                <li><a href="https://inside.amazon.com/en/employment/career/jobtransfers/Pages/default.aspx" style="float: right; padding-right:10px;">Internal Transfer Process</a><br></li>
+                                <li><a href="https://glsprivate.s3-us-west-2.amazonaws.com/Internal+Transfer+Tool/index.html#/ " style="float: right; padding-right:10px;">Internal Transfer Training</a><br></li>
+                                <li><a href="https://www.amazon.jobs/en/landing_pages/virtual-interview-prep" style="float: right; padding-right:10px;">Virtual interview Preparation</a><br></li>
+                                <li><a href="https://amazon.awsapps.com/workdocs/index.html#/document/f5f0d2e4dac7f41d2011cd45325747f680c294d18563d253c1ccbe9220f1bb59" style="float: right; padding-right:10px;">Star Method Worksheet</a><br></li>
+                                <li>&nbsp;</li>
+                                <li>&nbsp;</li>
+                                <li>&nbsp;</li>
+                                <li>&nbsp;</li>
+                                <li>
+                                    <span style="display:inline-block; padding-right:15px; width:90px;">Developer:  </span>
+                                        <a href="https://accolades.corp.amazon.com/send" style="float: right; padding-right:10px;" target=_blank>Send Accolade</a>
+                                        <a href="https://phonetool.amazon.com/users/cctaylor" style="float: right; padding-right:10px;">Charles Taylor</a>
+                                </li>
+                            </ul>
+                        </div>
+                        <a href="https://axzile.corp.amazon.com/-/carthamus/download_script/job-finder-phone-tool-who's-hiring!%3F!.user.js" style="font-weight:bold; position: relative; bottom: -69px; left: 41px;" target=_blank>Check for update</a>
+                    </div><!-- End 4 columns container -->
+                 </li><!-- End 4 columns Item -->
+            </ul>
+        </div>
+    </div>`;
+
+    //Factorum Options
+    let htmltext = `<a href="/widgets" target="">` + JobRowData + `</a>`;
+    let a_div = document.createElement('li');
+    if (document.getElementById('FactorumOptions') == undefined){
+        a_div.id = 'FactorumOptions';
+        a_div.innerHTML = htmltext;
+        appendAfter(a_div, document.getElementsByClassName('inactive hidden-md hidden-sm hidden-xs')[2])
+    } else {
+        document.getElementById('FactorumOptions').innerHTML = htmltext;
+    }
+
+    htmltext = '0';
+    if (document.getElementById('NudgeFlag') == undefined){
+        a_div = document.createElement('div');
+        a_div.id = 'NudgeFlag';
+        a_div.title = 'You have 0 new notifications';
+        a_div.innerHTML = htmltext;
+        appendAfter(a_div, document.getElementById('FactorumOptions'));
+    } else {
+        document.getElementById('NudgeFlag').innerHTML = htmltext;
+        document.getElementById('NudgeFlag').title = 'You have 0 new notifications';
+    }
+
+    //Level
+    let c_div;
+    htmltext = `<dl class="dl-horizontal"><div class="TableRow jobLevelRow"><div class="TableProperty">Level:</div>
+        <div id="Upper_Level_Data" class="TableValue"></div></div></dl>`;
+    if (document.getElementById('UpperLevelStatus') == undefined){
+        c_div = document.createElement('div');
+        c_div.id = 'UpperLevelStatus';
+        c_div.style = 'display: inline-flex;margin-right:10px;';
+        c_div.innerHTML = htmltext;
+    }
+
+    //My HR
+    let d_div;
+    htmltext = `<dl class="dl-horizontal"><div class="TableRow jobLevelRow"><div class="TableProperty">HR Contact:</div>
+        <div id="Upper_HR_Data" class="TableValue"><a href="https://maple-admin-prod.corp.amazon.com/my-support/person/` + UserAlias + `" target=_blank>Here</a></div></div></dl>`;
+    if (document.getElementById('UpperHRStatus') == undefined){
+        d_div = document.createElement('div');
+        d_div.id = 'UpperHRStatus';
+        d_div.style = 'display: inline-flex;margin-right:10px;';
+        d_div.innerHTML = htmltext;
+    }
+
+    //Open Roles Table element
+    let e_div;
+    htmltext = `<dl class="dl-horizontal"><div class="TableRow jobLevelRow"><div class="TableProperty">Open Roles:</div>
+        <div id="ParentCnt" class="TableValue">None<span id="ChildCnt"></span></div></div></dl>`;
+    if (document.getElementById('JobFinderStatus') == undefined){
+        e_div = document.createElement('div');
+        e_div.id = 'JobFinderStatus';
+        e_div.style = 'display: inline-flex;margin-right:10px;';
+        e_div.innerHTML = htmltext;
+    }
+
+    if (document.getElementsByClassName('dl-horizontal')[0] != undefined) {
+        if (document.getElementById('ParentCnt') == undefined){
+            appendAfter(e_div, document.getElementsByClassName('dl-horizontal')[0]);
+            appendAfter(d_div, document.getElementsByClassName('dl-horizontal')[0]);
+            appendAfter(c_div, document.getElementsByClassName('dl-horizontal')[0]);
+
+            addMapleHR(document.getElementById('Upper_HR_Data'),UserAlias);
+        }
+    } else {
+        alert("Page Load time error! Factorum did not find the details pane for the user. ");
+    }
+
+    //Add the warnings and notifications sections
+    let e_div2 = document.createElement('div');
+    if (document.getElementById('JobFinderStatus') == undefined){
+        e_div2.id = 'JobFinderNotify';
+        e_div2.style = 'display: inline-flex;margin-right:10px;margin-bottom:10px;';
+        e_div2.innerHTML = JobRowHeader + '</div><div id="NotifyArea"></div>';
+
+        if (document.getElementsByClassName('dl-horizontal')[0] != undefined) {
+            appendAfter(e_div2, document.getElementById('JobFinderStatus'))
+        } else {
+            alert("Page Load time error! Please check your connection. If you are working remotely, please make sure your VPN is connected.");
+        }
+    }
+    //Set the postion options actions
+    loadEventListeners();
+}
+let ListenWait = 0;
+function UpdateNotify(Message, desc) {
+    if (document.getElementById('NotifyArea') == undefined) {
+        CreateOpenRoles();
+    }
+    if (document.getElementById('Notify_' + desc) != undefined){
+        return;
+    }
+
+    let e_div = document.createElement('div');
+    e_div.id = 'Notify_' + desc;
+    e_div.style = 'color:red;';
+    e_div.innerHTML = Message;
+
+    console.error(Message);
+        if (Message.indexOf('connect to the Amazon.jobs API') > 0){
+            AmazonJobsPopup = '';
+            ManualOpen();
+        }
+    let shortMsg = Message.substring(20, 70);
+    if (document.getElementById('NotifyArea') != undefined) {
+        if ((document.getElementById('NotifyArea').innerText).indexOf(shortMsg) > 0){
+            return;
+        }
+        document.getElementById('NotifyArea').appendChild(e_div);
+    }
+}
+function loadEventListeners() {
+    if (ListenWait > 0) {
+        document.getElementById('IndirectRolesViewCheck').addEventListener('change', function () { IndirectRolesViewEvent(); });
+        document.getElementById('AdsViewCheck').addEventListener('change', function () { AdsViewEvent(); });
+        document.getElementById('LowLevelFilter').addEventListener('change', function () { LowLevelFilterEvent(); });
+        document.getElementById('HighLevelFilter').addEventListener('change', function () { HighLevelFilterEvent(); });
+        document.getElementById('KeyWordFilter').addEventListener('change', function () { KeyWordFilterEvent(); });
+        document.getElementById('LocationFilter').addEventListener('change', function () { LocationFilterEvent(); });
+
+        document.getElementById('ChimeViewCheck').addEventListener('change', function () { ChimeViewEvent(); });
+        document.getElementById('ActivityViewCheck').addEventListener('change', function () { ActivityViewEvent(); });
+        document.getElementById('StartedViewCheck').addEventListener('change', function () { StartedViewEvent(); });
+        document.getElementById('LocationViewCheck').addEventListener('change', function () { LocationViewEvent(); });
+        document.getElementById('AccoladesViewCheck').addEventListener('change', function () { AccoladesViewEvent(); });
+        document.getElementById('CTIViewCheck').addEventListener('change', function () { CTIViewEvent(); });
+        document.getElementById('PronounceViewCheck').addEventListener('change', function () { PronounceViewEvent(); });
+        document.getElementById('AutoAuthJobsCheck').addEventListener('change', function () { AutoAuthJobsEvent(); });
+    } else {
+        ListenWait++;
+        setTimeout(loadEventListeners, 2000); // check again in a second
+    }
+}
+
+function IndirectRolesViewEvent() {
+    IndirectRolesViewCheck = '';
+    var PosArrows = document.getElementsByClassName("ShowPosPointer");
+    for (var i = 0; i < PosArrows.length; i++) {
+        PosArrows.item(i).innerHTML = '⏷';
+    }
+    if (document.getElementById('IndirectRolesViewCheck').checked) {
+        IndirectRolesViewCheck = 'checked';
+        for (var j = 0; j < PosArrows.length; j++) {
+            PosArrows.item(j).innerHTML = '⏶';
+        }
+    }
+    localStorage.setItem("IndirectRolesViewCheck", IndirectRolesViewCheck);
+    GlobalIndirectClicker();
+}
+function AdsViewEvent() {
+    var AdsViewCheck = '';
+    if (document.getElementById('AdsViewCheck').checked) {
+        AdsViewCheck = 'checked';
+        newCSS = " .AdsRoles { display: block; }";
+        CreateCssClass(newCSS);
+    } else {
+        newCSS = " .AdsRoles { display: none; }";
+        CreateCssClass(newCSS);
+    }
+    localStorage.setItem("AdsViewCheck", AdsViewCheck);
+}
+function LowLevelFilterEvent() {
+    LowLevelFilter = document.getElementById('LowLevelFilter').value;
+    localStorage.setItem("LowLevelFilter", LowLevelFilter);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function HighLevelFilterEvent() {
+    HighLevelFilter = document.getElementById('HighLevelFilter').value;
+    localStorage.setItem("HighLevelFilter", HighLevelFilter);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function KeyWordFilterEvent() {
+    KeyWordFilter = document.getElementById('KeyWordFilter').value;
+    localStorage.setItem("KeyWordFilter", KeyWordFilter);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function LocationFilterEvent() {
+    LocationFilter = document.getElementById('LocationFilter').value;
+    localStorage.setItem("LocationFilter", LocationFilter);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+
+function ChimeViewEvent() {
+    if (document.getElementById('ChimeViewCheck').checked)
+        ChimeViewCheck = 'checked'; else ChimeViewCheck = 'off';
+    localStorage.setItem("ChimeViewCheck", ChimeViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function ActivityViewEvent() {
+    if (document.getElementById('ActivityViewCheck').checked)
+        ActivityViewCheck = 'checked'; else ActivityViewCheck = 'off';
+    localStorage.setItem("ActivityViewCheck", ActivityViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function StartedViewEvent() {
+    if (document.getElementById('StartedViewCheck').checked)
+        StartedViewCheck = 'checked'; else StartedViewCheck = 'off';
+    localStorage.setItem("StartedViewCheck", StartedViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function LocationViewEvent() {
+    if (document.getElementById('LocationViewCheck').checked)
+        LocationViewCheck = 'checked'; else LocationViewCheck = 'off';
+    localStorage.setItem("LocationViewCheck", LocationViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function AccoladesViewEvent() {
+    if (document.getElementById('AccoladesViewCheck').checked)
+        AccoladesViewCheck = 'checked'; else AccoladesViewCheck = 'off';
+    localStorage.setItem("AccoladesViewCheck", AccoladesViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function CTIViewEvent() {
+    if (document.getElementById('CTIViewCheck').checked)
+        CTIViewCheck = 'checked'; else CTIViewCheck = 'off';
+    localStorage.setItem("CTIViewCheck", CTIViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function PronounceViewEvent() {
+    if (document.getElementById('PronounceViewCheck').checked)
+        PronounceViewCheck = 'checked'; else PronounceViewCheck = 'off';
+    localStorage.setItem("PronounceViewCheck", PronounceViewCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+function AutoAuthJobsEvent() {
+    if (document.getElementById('AutoAuthJobsCheck').checked)
+        AutoAuthJobsCheck = 'checked'; else AutoAuthJobsCheck = 'off';
+    localStorage.setItem("AutoAuthJobsCheck", AutoAuthJobsCheck);
+    document.getElementById('li_Refresh').style.visibility = "visible";
+}
+
+
+//Check to see if the page is loaded each time nodes load
+//DOMNodeRemoved
+window.addEventListener('DOMNodeRemoved', function () {
+    let pass = false;
+
+    if (doOnce3 == 0) { //Load after a reset
+        let bottomElbowCount = document.querySelectorAll("level.leaf-bottom").length + document.querySelectorAll("level.unexpanded-bottom").length + document.querySelectorAll("level.unexpanded-bottom.expandable").length
+        if (bottomElbowCount == 1) { //This isn;t the right trigger - what if no directs or direct has directs
+            pass = false;
+        } else {
+            doOnce3++; //don't allow it again
+            pass = true;
+        }
+    }
+    if (pass == false) return;
+
+    UpdateRows();
+}, false);
+
+//DOMNodeInserted
+window.addEventListener('DOMNodeInserted', function (evt) {
+    LoadReady(evt)
+}, false);
+
+let InactiveOnceUpdate = 0;
+function UpdateInactivePage(){
+    if (InactiveOnceUpdate > 0) return;
+    InactiveOnceUpdate++;
+    //Employee's maple
+    var elements = document.querySelector('.well-large');
+    var InnerHTML = '<div id="Emp_Maple" style="padding-left:22px;"><a href="https://maple-admin-prod.corp.amazon.com/my-support/person/' + UserAlias + '" target=_blank>Maple: ' + UserAlias + '</a></div>';
+    addMapleHR('Emp_Maple', UserAlias);
+
+    //manager's maple
+    var wellElement = document.querySelector('.well-large');
+    var ddElement = wellElement.querySelector('dd');
+    var anchorElement = ddElement.querySelector('a');
+    if (anchorElement) {
+        // Extract the href attribute value
+        var hrefValue = anchorElement.getAttribute('href');
+        var lastIndex = hrefValue.lastIndexOf('/');
+
+        // Check if the '/' character is found
+        if (lastIndex !== -1) {
+            // Use string slicing to get all characters after the last '/'
+            var managerAlias = hrefValue.slice(lastIndex + 1);
+            InnerHTML += '<div id="Mgr_Maple" style="padding-left:22px;"><a href="https://maple-admin-prod.corp.amazon.com/my-support/person/' + managerAlias + '" target=_blank>Maple: ' + managerAlias + '</a></div>';
+        }
+    }
+    elements.innerHTML += InnerHTML;
+
+}
+function addMapleHR(ThisDiv, ThisUser){
+   let URLString = `https://maple-admin-prod.corp.amazon.com/api/contacts?login=` + ThisUser;
+   GM.xmlHttpRequest({
+        method: "GET",
+        url: URLString,
+        onload: function (response) {
+            console.log(URLString + ':' + response.status);
+            if (response.status == 401 || response.status == 405 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+            } else {
+                if (response == null) return;
+                if (response.responseText.length > 0 && response.responseText.indexOf('404 - File or directo') < 1) {
+                    if (response.responseText.indexOf('Service Unavailable') < 0) {
+                        let MapleHR = eval('(' + response.responseText + ')');
+                        //{"partial":false,"data":[{"roleName":"HRPartner","employeeDetails":{"login":"ackscott","fullName":"Scott Ackerman","businessTitle":"BeXT HR Partner","preferredName":null,"shouldDisplayPreferredName":true},
+                        if (MapleHR['data'] != undefined){
+                            if (MapleHR['data']['0'] != undefined){
+                                if (MapleHR['data']['0']['employeeDetails'] != undefined){
+                                    let HRAlias = MapleHR['data']['0']['employeeDetails']['login'];
+                                    let HRFullname = MapleHR['data']['0']['employeeDetails']['fullName'];
+                                    let innerHTMl = `<a href="https://phonetool.amazon.com/users/` + HRAlias + `" target=_blank" >`+HRFullname+`</a> - <a href="https://maple-admin-prod.corp.amazon.com/my-support/person/` + ThisUser + `" target=_blank" ><i style="text-decoration: underline;">More Information</i></a>`;
+                                    ThisDiv.innerHTML = innerHTMl;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        onerror: function (response) {
+            let Message = ''; //`<b>Warning:</b> An error occured while connecting to openlarp.corp.amazon.com. The service may be down or you may need to check your connection/VPN`;
+            let desc = "openlarp";
+            UpdateNotify(Message, desc);
+        }
+    });
+
+}
+let browsertype = '';
+function LoadReady(evt) {
+    let pass = false;
+
+
+    if (isBlink) browsertype = 'Blink';
+    if (isIE) browsertype = 'InternetExplorer';
+    if (isEdge) browsertype = 'Edge';
+    if (isFirefox) browsertype = 'Firefox';
+    if (isChrome) browsertype = 'Chrome';
+    if (isSafari) browsertype = 'Safari';
+    if (isOpera) browsertype = 'Opera';
+
+    //Check to see if Amazon.jobs session cookie is valid
+    FindAmazonJobsCookie();
+
+
+    //Wait until the child users load and then update ALL job openings
+    if (doOnce == 0) { //Load for the first time
+        if (document.querySelectorAll(".org-chart-row.highlighted").length == 0 || document.querySelectorAll(".fa.fa-refresh").length == 0 || document.querySelectorAll('.DisplayOptions').length == 0 || document.querySelectorAll('.badge-photo').length == 0) {
+            pass = false;
+        } else {
+            doOnce++; //don't allow it again
+            pass = true;
+        }
+    }
+
+    //Gatekeeper
+    if (pass == false) return;
+
+    CreateOpenRoles();
+
+    //Do this once
+    if (doOnce2 == 0) {
+        doOnce2++;
+        //Analytics on page load
+        let URLData = window.location.href + '&ACTION=Page_Load&VERSION=' + CodeVersion + '&SUBJECT=' + UserAlias + '&browsertype=' + browsertype;
+        //Assign a local user
+        localUser = localUserFind();
+
+        //Posts the analytics back to redshift
+
+        if (localUserNeeded) {
+            //Returns the user ID for the local user
+            GM.xmlHttpRequest({
+                method: "POST",
+                url: OpenLarpURL + "/py/webhit_jf_pt.py",
+                data: 'URL=' + URLData + '&UserName=' + localUser,
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                onload: function (response) {//no used reply
+                    if (response == null) return;
+                    if (response.status == 401 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+                    } else {
+                        if (response == null) return;
+                        if (response.responseText.length > 1) {
+                            if (response.responseText.indexOf('Service Unavailable') < 0) {
+                                localUserData = eval('(' + response.responseText + ')');
+                                localUserID = localUserData.Usr;
+                            }
+                        }
+                    }
+                },
+                onerror: function (response) {
+                    let Message = ''; //`<b>Notice:</b> An error occured while connecting to Factorum backend services. The service may be down or you may need to check your connection/VPN`;
+                    let desc = "webhit_jf_pt";
+                    UpdateNotify(Message, desc);
+                }
+            });
+        }
+
+        //Gets the job history of the person accessing the website (localUser)
+        GM.xmlHttpRequest({
+            method: "GET",
+            url: 'https://ekarulf.corp.amazon.com/cors/job-history/?format=greasemonkey&target=' + localUser,
+            onload: function (response) {
+                if (response.responseText.length > 1) {
+                    if (response.responseText.indexOf('Service Unavailable') < 0) {
+                        JobHistorydata = eval('(' + response.responseText + ')');
+                    }
+                }
+            },
+            onerror: function (response) {
+                let Message = `<b>Notice:</b> An error occured while connecting to ekarulf.corp.amazon.com. The service may be down or you may need to check your connection/VPN`;
+                let desc = "ekarulf";
+                UpdateNotify(Message, desc);
+            }
+        });
+    }
+
+    AddElbowClickListener();
+
+    //Set the details tags to something that is easily called later
+    ReplaceDetailsSpanTag();
+
+    //Stuff that needs to be done after everything loads - once
+    if (doOnce == 1) {
+        placeheaderRow();
+    }
+    //Call for new data - user json, open roles...
+    UpdateRows();
+
+}
+
+//Clean up the span tags when toggling expanded alias
+function ReplaceDetailsSpanTag() {
+    let i = 0;
+    while (document.getElementsByClassName("org-chart-row")[i] != undefined) {
+        let OrgChartRow = document.getElementsByClassName("org-chart-row")[i];
+        let alias = GetaliasfromURL(OrgChartRow.getElementsByTagName("A")[0].href);
+        for (let i = 0; i < OrgChartRow.getElementsByTagName("A").length; i++) {
+            if (OrgChartRow.getElementsByTagName("A")[i].innerText != "") {
+                alias = GetaliasfromURL(OrgChartRow.getElementsByTagName("A")[i].href);
+            }
+        }
+
+        //Don't create it if it is already there
+        if (document.getElementById('DirectCount_' + alias) != undefined) {
+            i++;
+            continue;
+        }
+
+        //Details
+        let NewDirectDetailsRow = document.createElement('div');
+        NewDirectDetailsRow.id = 'DirectCount_' + alias;
+        NewDirectDetailsRow.className = 'direct-reports-number';
+        NewDirectDetailsRow.style.height = '34px';
+        NewDirectDetailsRow.style.marginTop = '-3px';
+        NewDirectDetailsRow.style.lineHeight = '11px';
+        NewDirectDetailsRow.style.overflow = 'hidden';
+        NewDirectDetailsRow.innerHTML = 'User Details'
+
+        let thisNext = OrgChartRow.getElementsByTagName('div')[1];
+        for (let i = 0; i < OrgChartRow.getElementsByTagName("div").length; i++) {
+            if (OrgChartRow.getElementsByTagName("div")[i].innerText.indexOf('span') > 0) {
+                thisNext = OrgChartRow.getElementsByTagName("div")[i];
+            }
+        }
+
+
+        appendAfter(NewDirectDetailsRow, thisNext);
+
+        //Add name to the badge-photo
+        OrgChartRow.getElementsByTagName('img')[0].id = "BadgePhoto_" + alias;
+
+        //Add name to elbow image
+        OrgChartRow.getElementsByClassName('level')[0].id = "icon_" + alias;
+
+        CallUserJSON(alias);
+        i++;
+
+        OtherScriptCleanUp();
+    }
+
+
+}
+function CallUserJSON(alias) {
+    let URLString = "https://phonetool.amazon.com/users/" + alias + ".json";
+
+    //track if the data has comback yet
+    if (QueryReply['CallUserJSON'] == undefined) { QueryReply['CallUserJSON'] = []; }
+
+    //Populate the user's Level and other details from JSON
+    if (QueryReply['CallUserJSON'][alias] == undefined) { //Not searched yet
+        QueryReply['CallUserJSON'][alias] = [];
+        GM.xmlHttpRequest({
+            method: "GET",
+            url: URLString,
+            onload: function (response) {
+                if (response.status == 401 || response.status == 404 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+                } else if (response.status == 429) {
+                    QueryReply['CallUserJSON'][alias] = undefined;
+                    CallUserJSON(alias);
+                } else {
+                    if (QueryReply['CallUserJSON'][alias]['data'] == undefined) QueryReply['CallUserJSON'][alias]['data'] = [];
+
+                    QueryReply['CallUserJSON'][alias]['data'] = eval('(' + response.responseText + ')');
+                    QueryReply['CallUserJSON'][alias]['reply'] = 'True';
+
+                    //Set the copy link
+                    let aliastext = '<div class="Copylink" id="CopyThis_' + alias + '" title="Click to copy">' + alias + '&#10697; ' + '</div>';
+
+                    //set the sleck link
+                    let SlackStyle = '';
+                    if (ChimeViewCheck != '' && ChimeViewCheck != 'checked') SlackStyle = ' style="display:none;"';
+                    let SlackLink = '<span ' + SlackStyle + '><a href="https://slack.com/app_redirect?channel=@' + alias + '" target="_blank" >Slack </a>&#47;</span> ';
+
+                    //set the chime link
+                    let ChimeStyle = '';
+                    if (ChimeViewCheck != '' && ChimeViewCheck != 'checked') ChimeStyle = ' style="display:none;"';
+                    let ChimeLink = '<a href="https://app.chime.aws/conversations/new?email=' + alias + '@amazon.com" target="_blank" ' + ChimeStyle + '>Chime </a>';
+
+                    //get the current direct report number
+                    QueryReply['CallUserJSON'][alias]['data']['direct_report_cnt'] = QueryReply['CallUserJSON'][alias]['data']['direct_reports'].length;
+                    let DirectReportsString = '';
+                    if (QueryReply['CallUserJSON'][alias]['data']['direct_report_cnt'] > 0) {
+                        DirectReportsString = '<span id="direct-reports-'+alias+'">Direct Reports: ' + QueryReply['CallUserJSON'][alias]['data']['direct_report_cnt'] + '</span>- ';
+                    }
+                    //Set the level string
+                    let levelstring = 'Level: ' + QueryReply['CallUserJSON'][alias]['data']['job_level'] + ' ';
+                    if (alias == UserAlias){
+                        document.getElementById('Upper_Level_Data').innerHTML = QueryReply['CallUserJSON'][alias]['data']['job_level'];
+                    }
+
+                    //set the bar raiser string
+                    let BarRaiserString = '';
+                    if (QueryReply['CallUserJSON'][alias]['data']['bar_raiser'] == true)
+                        BarRaiserString = ' - Bar Raiser - ';
+                    //Set the hire date in short format
+                    let from;
+                    let startdateString = '';
+                    if (QueryReply['CallUserJSON'][alias]['data']['hire_date_iso'] != null) {
+                        from = QueryReply['CallUserJSON'][alias]['data']['hire_date_iso'].split("-");
+                        MonthName[(from[1] - 1)] + ' ' + from[2];
+                        startdateString = ' Started: ' + MonthName[(from[1] - 1)] + ' ' + from[0] + ' - ';
+                    }
+
+                    //Set the map info
+                    //displayMapLoc(QueryReply['CallUserJSON'][alias]['data']); //Not required for each lookup
+
+                    TestFor_EmailAndLoginIcons(alias);
+
+                    //Set the first div after <div class="user-information"> to have a locked height and overflow hidden - max-height: 15px; overflow: hidden;
+                    var userInfoDivs = document.getElementsByClassName('user-information');
+                    for (var u = 0; u < userInfoDivs.length; u++) {
+                        if (userInfoDivs[u].firstChild != null) {
+                            if (userInfoDivs[u].firstChild.style != undefined) {
+                                userInfoDivs[u].firstChild.style.height = "15px";
+                                userInfoDivs[u].firstChild.style.overflow = "hidden";
+                            }
+                        }
+                    }
+
+
+
+                    //Set the building and URL
+                    //Hide the hidden items
+                    let ActivityStyle = '';
+                    if (ActivityViewCheck != '' && ActivityViewCheck != 'checked') ActivityStyle = ' display:none;';
+                    if (StartedViewCheck != '' && StartedViewCheck != 'checked') startdateString = '';
+                    let LocationStyle = '';
+                    if (LocationViewCheck != '' && LocationViewCheck != 'checked') LocationStyle = ' display:none;';
+                    let AccoladesStyle = '';
+                    if (AccoladesViewCheck != '' && AccoladesViewCheck != 'checked') AccoladesStyle = ' display:none;';
+                    let CTIStyle = '';
+                    if (CTIViewCheck != '' && CTIViewCheck != 'checked') CTIStyle = ' display:none;';
+                    let PronounceStyle = '';
+                    if (PronounceViewCheck != '' && PronounceViewCheck != 'checked') PronounceStyle = ' display:none;';
+
+                    let building = QueryReply['CallUserJSON'][alias]['data']['building'].split("-");
+                    let buildingURL = '<a href="https://www.google.com/search?q=Amazon+' + QueryReply['CallUserJSON'][alias]['data']['building'] +
+                        '" target=_blank title="Location info" style="font-size: 90%;">' + building[1] + '</a>';
+                    let buildingString = '&nbsp;Desk: ' + buildingURL;
+                    //Set the city
+                    let cityString = ', ' + QueryReply['CallUserJSON'][alias]['data']['city'];
+                    let ActivityString = ' - <b><a title="Search Activity in https://is.amazon.com" href="https://is.amazon.com/search/ALL?q=' + alias + '&autocompleted=false" target=_blank style="font-size: 9px;' + ActivityStyle + '"> Activity </a></b>';
+                    let AccoladeString = ' - <span id="Accolade_' + alias + '"></span>';
+                    let CTIString = ' - <b><a title="Tickets &#38; CTI" href="https://cti.amazon.com/user/' + alias + '" target=_blank style="font-size: 9px;"> CTIs &#127903; &nbsp;&nbsp;</a></b>';
+                    let PronounceString = ' - <b><a title="How to say my name" href="https://saymyname.tools.amazon.dev/users/' + alias + '" target=_blank style="font-size: 9px;"> Pronounce &#128266;</a></b>';
+
+                    let JSONtoHTML = '<div style="display:inline-block;">' + aliastext + SlackLink + ChimeLink + DirectReportsString + levelstring + BarRaiserString + startdateString + '</div>' +
+                        '<div style="display:inline-block;' + LocationStyle + '">' + buildingString + cityString + '</div>' +
+                        '<div style="display:inline-block;">' + ActivityString + '</div>' +
+                        '<div style="display:inline-block;' + AccoladesStyle + '">' + AccoladeString + '</div>' +
+                        '<div style="display:inline-block;' + CTIStyle + '">' + CTIString + '</div>' +
+                        '<div style="display:inline-block;' + PronounceStyle + '">' + PronounceString + '</div>' +
+                        '<br><a id="ShowHideSpan_' + alias + '" title="click to show/hide open roles" style="font-size: 95%;"></a>';
+
+                    if (document.getElementById('DirectCount_' + alias) == undefined)
+                        ReplaceDetailsSpanTag();
+
+                    document.getElementById('DirectCount_' + alias).innerHTML = JSONtoHTML;
+
+                    let Parent = false;
+
+                    if (alias == UserAlias) Parent = true;
+
+                    //make the show/hide span clickable
+                    document.getElementById('CopyThis_' + alias).addEventListener('click', function () { CopyThisText(event, alias); });
+                    document.getElementById('ShowHideSpan_' + alias).addEventListener('click', function () { ShowHideOpenRoles(event, alias); });
+
+                    Get_Accolades(alias);
+                    ProcessJobHTML(Parent, alias);
+                    OtherScriptCleanUp();
+
+
+                    //If there are direct reports, support the discrepency icon
+                    let DirectsDiv = document.getElementById("DirectCount_" + alias).nextSibling;
+                    if (DirectsDiv.classList != undefined){
+						if (DirectsDiv.classList.contains('direct-reports-number')){
+							var fragment = document.createDocumentFragment();
+							fragment.appendChild(DirectsDiv); // Append desired element to the fragment:
+
+							let DirectNum = document.getElementById("direct-reports-" + alias);
+							DirectsDiv.style.display = null;
+							DirectNum.replaceWith(fragment);
+						}
+					}
+                }
+            },
+            onerror: function (response) {
+                let Message = ''; //`<b>Warning:</b> An error occured while connecting to phonetool.amazon.com. The service may be down or you may need to check your connection/VPN`;
+                let desc = "phonetool";
+                UpdateNotify(Message, desc);
+            }
+        });
+    }
+}
+
+function TestFor_EmailAndLoginIcons(alias) {
+    if (document.getElementById('copyLogin_' + alias) != undefined) {
+        let Message = `<b>Warning:</b> A conflicting script has been detected. You have enabled the GreaseMonkey/TamperMonkey script "Email and login icons in org chart." This script causes a issue with the way factorum displays User Infromation. Please disable the "Email and login icons in org chart" script to restore formatting or contact @lucfra and ask him to modify the script to support Factorum.`
+        let desc = "Email_and_login_icons_in_org_chart";
+        UpdateNotify(Message, desc);
+    }
+}
+
+function CopyThisText(evt, thisText) {
+    GM_setClipboard(thisText);
+
+    document.getElementById('CopyThis_' + thisText).innerHTML = thisText + ` <span style="color:#000;font-size:90%;">- copied</span>`;
+    setInterval(function () { CopyDone(thisText); }, 750);
+}
+function CopyDone(thisText) {
+    document.getElementById('CopyThis_' + thisText).innerHTML = thisText + "&#10697;&nbsp; ";
+}
+let orgClick = 0;
+function UpdateRows() {
+    let node = document.querySelectorAll(".org-chart-row")[1]; //".org-chart-row.highlighted"
+
+    //Call the focus user
+    let HighlightedRow = document.getElementsByClassName('org-chart-row highlighted')[0];
+    let FullName = ''; //(HighlightedRow.getElementsByTagName("A")[0].innerText).replace(/(\r\n|\n|\r)/gm, "") + ' ';
+
+    for (let i = 0; i < HighlightedRow.getElementsByTagName("A").length; i++) {
+        if (HighlightedRow.getElementsByTagName("A")[i].innerText != "") {
+            FullName = (HighlightedRow.getElementsByTagName("A")[i].innerText).replace(/(\r\n|\n|\r)/gm, "") + ' ';
+        }
+    }
+
+    let FullNameAlias = '';
+    let thisAlias = '';
+    let aliasSplit = [];
+    for (let i = 0; i < HighlightedRow.children.length; i++) {
+        if (HighlightedRow.children[i].className == "badge-photo blue-badge-small") {
+            aliasSplit = (HighlightedRow.children[i].src).split('=');
+            break;
+        }
+    }
+
+    FullNameAlias = aliasSplit[1]; // "https://badgephotos.corp.amazon.com/?uid=cctaylor"
+
+    //Record event
+    orgClick++;
+    if (orgClick > 1)
+        LinkAnalytic('Org-Tree_Expand', FullNameAlias + '-' + (orgClick - 1));
+
+    CallJobSearch(true, FullNameAlias, FullName + '(' + FullNameAlias + ')');
+    while (node = node.nextSibling) {
+        if ((' ' + node.className + ' ').indexOf('org') !== -1) {
+            let arrChildUserAlias = GetaliasfromURL(node.getElementsByTagName("A")[0].href);
+            for (let i = 0; i < node.getElementsByTagName("A").length; i++) {
+                if (node.getElementsByTagName("A")[i].innerText != "") {
+                    FullName = (node.getElementsByTagName("A")[i].innerText).replace(/(\r\n|\n|\r)/gm, "") + ' ';
+                    arrChildUserAlias = GetaliasfromURL(node.getElementsByTagName("A")[i].href);
+                }
+            }
+
+
+            //Call the Amazon jobs search
+            //Create the div box for the alias
+            CallJobSearch(false, arrChildUserAlias, FullName + '(' + arrChildUserAlias + ')');
+
+            if (node.children[0] != undefined) {
+                if (node.children[0].className == 'level unexpanded expandable') {
+                    node.children[0].removeEventListener('click', function () { ResetToNewUser(event, UserAlias); });
+                    let thisAlias = '';
+                    let aliasSplit = (node.children[1].src).split('=');
+                    thisAlias = aliasSplit[1];
+                    node.children[0].addEventListener('click', function () { ResetToNewUser(event, thisAlias); });
+                }
+            }
+        }
+    }
+}
+function GetaliasfromURL(URL) {
+    let alias = '';
+    let arr = URL.split('/');
+    alias = arr[4];
+    return alias; //URL.replace('https://phonetool.amazon.com/users/', '') broke with connect.amazon.com
+}
+
+
+
+//call the Jobfinder URL API with passed parameters and put them in the array + build new rows
+function CallJobSearch(Parent, UserAlias, FullUserAlias) {
+    //track if the data has comback yet
+    if (QueryReply['CallJobSearch'] == undefined) QueryReply['CallJobSearch'] = [];
+    if (QueryReply['CallJobSearch'][UserAlias] == undefined) QueryReply['CallJobSearch'][UserAlias] = [];
+
+    //Make sure the page loaded with the element
+    if (document.getElementById('JobFinderStatus') == undefined) {
+        document.getElementsByClassName('dl-horizontal')[0].innerHTML = RowHTML; //+= is causing a lot of other scripts to not place nice :(
+    }
+
+    //Fix the name order if the lastname, firstname settting is enabled - to support jobs under https://phonetool.amazon.com/users/sameer and not https://phonetool.amazon.com/users/samesait
+    if (FullUserAlias.indexOf(',') !== -1) {
+        let FullUserAliasSplit = FullUserAlias.split(', ');
+        let JustAliasSplit = FullUserAliasSplit[1].split('(');
+        FullUserAlias = JustAliasSplit[0] + FullUserAliasSplit[0] + " (" + JustAliasSplit[1];
+    }
+    let FullUserAliasURL = encodeURIComponent(FullUserAlias);
+    let SelectedJob = ''; //encodeURIComponent('');
+
+    let levelFilterstring = '';
+    levelFilterstring = levelFilterstringAssemble();
+
+    //Get the Open Job data
+    if (JobList[UserAlias] == undefined) {
+        JobList[UserAlias] = [];
+
+
+        let url = "https://amazon.jobs/en/internal/search.json?hiring_manager[]=" + FullUserAliasURL + levelFilterstring
+                + "&facets[]=location&facets[]=business_category&facets[]=category&facets[]=schedule_type_id"
+                + "&facets[]=job_function_id&facets[]=hiring_manager&facets[]=job_level&"
+                + "facets[]=relocation_types&facets[]=is_tech&facets[]=is_posted_externally"
+                + "&offset=0&result_limit=20&sort=relevant&latitude=&longitude="
+                + "&loc_group_id=&loc_query=&base_query=" + SelectedJob + "&city=&country=&region=&county=";
+        GM.xmlHttpRequest({
+            method: "GET",
+            url: url,
+
+            onload: function (response) {
+                console.log(url + ':' + response.status);
+                if (response.status == 401 || response.status == 405 || response.status == 502) { //Failed Auth (probably firefox) //server down
+                    return;
+                }
+                if ((response.responseText).indexOf('(' + UserAlias + ')') > 1) { //is this the right alias also skips blank returns
+                    window.focus();
+                    if (QueryReply['CallJobSearch'][UserAlias]['data'] == undefined) {
+                        QueryReply['CallJobSearch'][UserAlias]['data'] = [];
+                    }
+
+                    if (response.responseText.indexOf("DOCTYPE") >= 0) {
+                        if (response.responseText.search('If you are not automatically redirected') > 0) {
+                            let Message = `<b>Warning:</b> Could not automatically connect to the Amazon.jobs API. Please click here to connnect <a href="https://amazon.jobs/en/internal/search.json?hiring_manager[]=Shibu%20Shaji%20(sshaji)&job_level[]=4&job_level[]=5&job_level[]=6&job_level[]=7&job_level[]=8&job_level[]=9&job_level[]=10&job_level[]=11&job_level[]=12&facets[]=location&facets[]=business_category&facets[]=category&facets[]=schedule_type_id&facets[]=job_function_id&facets[]=hiring_manager&facets[]=job_level&facets[]=relocation_types&facets[]=is_tech&facets[]=is_posted_externally&offset=0&result_limit=20&sort=relevant&latitude=&longitude=&loc_group_id=&loc_query=&base_query=&city=&country=&region=&county=" target=_blank>link</a> and then refresh the phonetool page`;
+                            let desc = "amazon.jobs";
+                            UpdateNotify(Message, desc);
+                            ManualOpen();
+
+                        }
+                        return;
+                    }
+
+                    //Set the data
+                    QueryReply['CallJobSearch'][UserAlias]['data'] = eval('(' + response.responseText + ')');
+                    //Process the data
+                    ProcessJobHTML(Parent, UserAlias);
+                }
+            },
+            onerror: function (response) {
+                let Message = ''; //`<b>Warning:</b> An error occured while connecting to amazon.jobs. The service may be down or you may need to check your connection/VPN`;
+                let desc = "amazon.jobs";
+                UpdateNotify(Message, desc);
+            }
+
+        });
+    } else {
+        ProcessJobHTML(Parent, UserAlias);
+    }
+
+
+}
+var Open1 = 0;
+var openedWindow;
+function ManualOpen() {
+    //Don't loop forever checking
+    if (parseInt(AutoAuthJobsEscape) > 2){
+        AutoAuthJobsCheck = 'off';
+        localStorage.setItem("AutoAuthJobsCheck", AutoAuthJobsCheck);
+        document.getElementById('li_Refresh').style.visibility = "visible";
+        return;
+    }
+    if (AutoAuthJobsCheck == 'off') return;
+
+    //Check to only do once
+    if (Open1 > 0) return;
+    if (istoday(AmazonJobsPopup)) return;
+
+    UpdateNotify(`<b>Reloading:</b> Attempting to login to Amazon.jobs. You may need to <a href="https://support.mozilla.org/en-US/kb/pop-blocker-settings-exceptions-troubleshooting" target=_blank> allow popups</a> on this page`, "reload page")
+    var openurl = 'https://www.amazon.jobs/en/internal/'
+    openedWindow = window.open(openurl, "AmazonJobs Midway", "left=100,top=100,width=320,height=320");
+    sleep(3000).then(() => { openedWindow.close(); location.reload();});
+
+
+    //Only popup the first time
+    Open1++;
+
+    //Only popup once a day
+    localStorage.setItem("AmazonJobsPopup", new Date().toLocaleDateString("en-US") + '');
+    AmazonJobsPopup = localStorage.getItem("AmazonJobsPopup");
+    let hitCount = parseInt(AutoAuthJobsEscape) + 1;
+    localStorage.setItem("AutoAuthJobsEscape", (hitCount + ''));
+}
+function istoday(thisdate) {
+    if (thisdate == (new Date().toLocaleDateString("en-US") + ''))
+        return true
+    return false
+    if (Open1 > 0) return;
+    var openurl = 'https://www.amazon.jobs/en/internal/'
+    openedWindow = window.open(openurl, '_blank');
+    sleep(2000).then(() => { openedWindow.close();; });
+    location.reload();
+    Open1++;
+}
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+function levelFilterstringAssemble() {
+    let levelFilterstring = '';
+    //&job_level[]=1&job_level[]=2&job_level[]=3&job_level[]=4&job_level[]=5&job_level[]=6&job_level[]=7&job_level[]=8&job_level[]=9&job_level[]=10&job_level[]=11&job_level[]=12';
+
+    for (let i = parseInt(LowLevelFilter); i <= parseInt(HighLevelFilter); i++) {
+        levelFilterstring += '&job_level[]=' + i;
+    }
+    return levelFilterstring;
+}
+function ProcessJobHTML(Parent, alias) {
+    if (QueryReply['CallJobSearch'] == undefined)
+        return;
+
+    if (QueryReply['CallJobSearch'][alias] == undefined) //|| QueryReply['CallUserJSON'][alias] == undefined)
+        return;
+
+    if (QueryReply['CallUserJSON'] == undefined) { QueryReply['CallUserJSON'] = []; }
+    if (QueryReply['CallUserJSON'][alias] == undefined)
+        ReplaceDetailsSpanTag();
+
+    CallUserJSON(alias);
+
+    if (QueryReply['CallJobSearch'][alias]['data'] == undefined || QueryReply['CallUserJSON'][alias]['data'] == undefined) //Is there a reply from both data requests
+        return;
+
+    QueryReply['CallJobSearch'][alias]['Processed'] = 'True';
+
+    let JobRowData = '<div style="font-size: 12px;margin-left: 5px;width: 190px;">0 Directs<span id="ChildCnt"></span></div>';
+
+    //Create the container Elements
+    let AllJob_e = document.createElement('div');
+    AllJob_e.id = 'AllParentJobs';
+    AllJob_e.style.maxHeight = "0px";
+    AllJob_e.style.overflow = "hidden";
+    AllJob_e.style.transition = "all 0.5s ease-out";
+    AllJob_e.style.backgroundColor = "white";
+
+    let ChildJob_e = document.createElement('div');
+    ChildJob_e.id = 'ChildDiv';
+    ChildJob_e.style.paddingLeft = "50px";
+    ChildJob_e.style.maxHeight = "0px";
+    ChildJob_e.style.overflow = "hidden";
+    ChildJob_e.style.transition = "all 0.5s ease-out";
+    ChildJob_e.style.backgroundColor = "white";
+
+    let AllJobString = '';
+    JobList[alias] = JobfinderHTMLParse(Parent, QueryReply['CallJobSearch'][alias]['data']);
+
+    //Update the parent job count
+    if (ParentJobcnt > 0 && document.getElementById('ChildCnt') != undefined) {
+        document.getElementById('ParentCnt').innerHTML = ParentJobcnt + ' Directs <span id="ChildCnt"></span>';
+    }
+
+
+    //Update the indirects job count
+    if (ChildJobcnt > 0 && document.getElementById('ChildCnt') != undefined) {
+        document.getElementById('ChildCnt').innerHTML = '  (' + ChildJobcnt + ' Other openings)';
+    }
+
+    //Find the parent div to append to
+    let ManagerRow = FindTag('badge-photo', 'src', 'https://badgephotos.corp.amazon.com/?uid=' + alias).parentNode;
+    if (ManagerRow == undefined) return;
+    let Indent = parseInt(ManagerRow.style.paddingLeft) + 20;
+
+    //Change the icon (elbow) to connect to the new roles
+    if (QueryReply['CallJobSearch'][alias]['data']['jobs'].length > 1) {
+        if (IndirectRolesViewCheck == 'checked') {
+            ManagerRow.children[0].className = ManagerRow.children[0].className + ' withDirects';
+            ManagerRow.children[0].className = ManagerRow.children[0].className.replace('-bottom', '-bottom truebottom');
+        } else if (IndirectRolesViewCheck == '') {
+            if (ManagerRow.children[0].className == 'level unexpanded expandable' && Parent == false) {//More Rows
+                //ManagerRow.children[0].className = 'level expandable unexpandedManager';
+                ManagerRow.children[0].className = 'level expandable unexpandedManager-bottom withDirects';
+                ManagerRow.children[0].addEventListener('click', function () { ResetToNewUser(event, alias); });
+            } else if (ManagerRow.children[0].className == 'level unexpanded-bottom expandable' && Parent == false) { //Last row
+                ManagerRow.children[0].className = 'level expandable unexpandedManager-bottom truebottom withDirects';
+                ManagerRow.children[0].addEventListener('click', function () { ResetToNewUser(event, alias); });
+            } else if (ManagerRow.children[0].className == 'level leaf' && Parent == false) { //leaf
+                //ManagerRow.children[0].className = 'level leafManager';
+                ManagerRow.children[0].className = 'level leafManager-bottom withDirects';
+            } else if (ManagerRow.children[0].className == 'level leaf-bottom' && Parent == false) { //Last leaf
+                ManagerRow.children[0].className = 'level leafManager-bottom withDirects';
+            }
+        }
+    }
+
+    let IDNum = 0; //Use this to track the first placed row
+    for (let ID in JobList[alias]) {
+        //Exit with late filter
+        let upperJobTitle = (JobList[alias][ID]['Title'].toUpperCase());
+        if (upperJobTitle.indexOf(KeyWordFilter.toUpperCase()) < 1 && KeyWordFilter != '') continue;
+        let upperLocation = (JobList[alias][ID]['Location'].toUpperCase());
+        if (upperLocation.indexOf(LocationFilter.toUpperCase()) < 1 && LocationFilter != '') continue;
+
+        //Create a new div with all the values of new job
+        let IDshort = JobList[alias][ID]['JobID'];
+        let JobHyperlink = '<a id="JobHyper_' + IDshort + '" href="https://www.amazon.jobs/en/internal/jobs/' + IDshort + '" id="URL_job' + IDshort + 'refsearch" target="_blank"> Open Role: ' + IDshort + '</a>&nbsp;'
+        let JobTitle = JobList[alias][ID]['Title'];
+
+
+        //Relocation Optiopns
+        let ReloDomInt = 'No';
+        let ReloDomExt = 'No';
+        let ReloIntInt = 'No';
+        let ReloIntExt = 'No';
+
+        for (let j = 0; j < JobList[alias][ID]['relocation_types'].length; j++) {
+            if (JobList[alias][ID]['relocation_types'][j] == "Allow domestic relocation for internal transfers") ReloDomInt = 'Yes';
+            if (JobList[alias][ID]['relocation_types'][j] == "Allow domestic relocation for external candidates") ReloDomExt = 'Yes';
+            if (JobList[alias][ID]['relocation_types'][j] == "Allow international relocation for internal transfers") ReloIntInt = 'Yes';
+            if (JobList[alias][ID]['relocation_types'][j] == "Allow international relocation for external candidates") ReloIntExt = 'Yes';
+        }
+
+        let longJobDesc = '<div id="LongDesc_' + IDshort + '" class="direct-reports-number" ' +
+            'style="height: 11px; margin-top: -3px;line-height: 11px;text-overflow: ellipsis;overflow: hidden;width: 95 %;white-space: nowrap; display:none;">' +
+            JobList[alias][ID]['Description'] + '</div><div id="JobMeta_' + IDshort + '" style="font-style: italic;color: grey;font-size: 80%;">' +
+            '<a id="Referal_' + IDshort + '" href="https://account.amazon.jobs/en-US/jobs/' + IDshort + '/refer" target=_blank> Refer External candidate </a>' +
+            '<span id="Relo_' + IDshort + '" class="AdsLabel_span" style="display: inline-block;width: auto;float: none;margin: 0px;position: inherit;">' +
+            '<b> Relocation: </b> <span style="color: #999; cursor:help;" >🛈</span> &nbsp; ' + ReloDomInt + ', ' + ReloDomExt + ', ' + ReloIntInt + ', ' + ReloIntExt + ' </span>';
+        '</div>';
+
+        let JobLocation = JobList[alias][ID]['Location'];
+        let JobPost = JobList[alias][ID]['PostDate'];
+        let newDiv = document.createElement('div');
+        let visiblecss = ''
+        if (Parent == false) {
+            visiblecss = 'indirectOpenRoles';
+        } else {
+            //get the jobMeta details
+            JobMetaPull(IDshort);
+        }
+        //Skip if already done
+        if (document.getElementById('Indent_' + ID) != undefined) return;
+
+        //use to loop through the indirect managers with open roles
+        newDiv.id = 'JobFinderRow_' + ID;
+        newDiv.innerHTML = CreateNewRow(ID, JobHyperlink, JobTitle, longJobDesc, JobPost, JobLocation, Indent, alias, visiblecss);
+
+
+        //Add the row and provide an event
+        appendAfter(newDiv, ManagerRow);
+        document.getElementById('JobHyper_' + IDshort).addEventListener('click', function () { LinkAnalytic('Research', IDshort); });
+        document.getElementById('Referal_' + IDshort).addEventListener('click', function () { LinkAnalytic('Referal', IDshort); });
+        document.getElementById('Relo_' + IDshort).title = 'Domestic Internal, Domestic External, International Internal, International External';
+
+        //Fix the icon / elbow for the last (added first) new role when not direct manager
+        if (IDNum == 0 && Parent == false) { //This is the last
+            document.getElementById('icon_' + ID).className = 'level leaf-bottom';
+        }
+
+
+
+        IDNum++;
+    }
+
+    //Create the correct direction arror
+    let ShowHideSpan = ' <span id="ShowHideInnerSpan_' + alias + '" class="ShowPosPointer">⏷</span>';
+    if (Parent == false && IndirectRolesViewCheck == 'checked')
+        ShowHideSpan = ' <span id="ShowHideInnerSpan_' + alias + '" class="ShowPosPointer">⏶</span>';
+
+    //Update the Open role count
+    if (IDNum > 0) {
+        if (document.getElementById('ShowHideSpan_' + alias) == undefined)
+            CallUserJSON(alias);
+
+        document.getElementById('ShowHideSpan_' + alias).innerHTML = ' Open roles: ' + IDNum + ShowHideSpan;
+    }
+}
+function JobfinderHTMLParse(Parent, arr) {
+    //Loop through the html from jobfinder and fill the object with data
+    let URLList = [];
+    let thisList = [];
+
+    for (let i of arr['jobs']) {
+        let URLtoID = 'job' + i['id_icims']
+
+        //Add to the Array
+        thisList[URLtoID] = [];
+        thisList[URLtoID]['JobID'] = i['id_icims']; //940521
+        thisList[URLtoID]['PostDate'] = i['posted_date']; //September 17, 2019
+        thisList[URLtoID]['Title'] = i['title'] + ' (Level  ' + i['level'] + ")"; //Sr. Data Engineer - AWS Demand Planning (Level 6)
+        thisList[URLtoID]['Description'] = i['description']; //The AWS Long Range Planning team is hiring...
+        thisList[URLtoID]['Location'] = i['location']; //"United States, WA, Seattle"
+        thisList[URLtoID]['Manager'] = i['hiring_manager']; //"Mustafa Dogru (dogrum)"
+        let managerName = i['hiring_manager'].split("("); //[Mustafa Dogru (], [dogrum)]
+        thisList[URLtoID]['MangerID'] = managerName[1].slice(0, -1); //dogrum
+        thisList[URLtoID]['start_date'] = i['start_date']; //"June 28, 2020"
+        thisList[URLtoID]['relocation_types'] = i['relocation_types']; // []
+        //thisList[URLtoID]['Relocation'] = '0: "Allow domestic relocation for internal transfers"', '"Allow domestic relocation for external candidates"'
+
+    }
+
+    if (Parent) {
+        ParentJobcnt = arr['jobs'].length;
+    } else {
+
+        ChildJobcnt++;
+    }
+
+    return thisList;
+}
+
+function GlobalIndirectClicker() {
+    if (IndirectRolesViewCheck == 'checked') {
+        newCSS = " .indirectOpenRoles { height: 47px !important;} ";
+        CreateCssClass(newCSS);
+        //Change all the ⏷ to ⏶
+        let indirectCnt = 0
+        //Put the elbow line back
+        //loop through all the withDirects adding Manager to the classname
+        while (document.getElementsByClassName('withDirects')[indirectCnt] != undefined) {
+            let thisrow = document.getElementsByClassName('withDirects')[indirectCnt];
+            thisrow.className = thisrow.className.replace('unexpanded', 'unexpandedManager');
+            thisrow.className = thisrow.className.replace('leaf', 'leafManager');
+            indirectCnt++;
+        }
+    } else {
+        newCSS = " .indirectOpenRoles { height: 0px !important;} ";
+        CreateCssClass(newCSS);
+        //Change all the ⏶ to ⏷
+        let indirectCnt = 0;
+        //Remove the new Elbows "level leafManager-bottom' --> "level leaf-bottom"
+        //loop through all the withDirects removing Manager from the classname
+        while (document.getElementsByClassName('withDirects')[indirectCnt] != undefined) {
+            let thisrow = document.getElementsByClassName('withDirects')[indirectCnt];
+            thisrow.className = thisrow.className.replace('Manager', '');
+            if (thisrow.className.indexOf('truebottom') == -1)
+                thisrow.className = thisrow.className.replace('-bottom', '');
+            indirectCnt++;
+        }
+    }
+}
+function ShowHideOpenRoles(evt, thisUserAlias) {
+    //Creates a css class that hides or shows the open roles rows for userAlias
+    let csstext = '';
+
+    if ((document.getElementById('ShowHideInnerSpan_' + thisUserAlias).innerHTML).indexOf('⏷') > -1) { //Show the contenct
+        document.getElementById('ShowHideInnerSpan_' + thisUserAlias).innerHTML = '⏶';
+        csstext = '.ShowHide_' + thisUserAlias + ' { height: 47px !important;}';
+        CreateCssClass(csstext);
+        LinkAnalytic('Unhiding', thisUserAlias);
+    } else {
+        document.getElementById('ShowHideInnerSpan_' + thisUserAlias).innerHTML = '⏷';
+        csstext = '.ShowHide_' + thisUserAlias + ' { height: 0px !important;}';
+        CreateCssClass(csstext);
+        LinkAnalytic('Hiding', thisUserAlias);
+    }
+}
+function AddElbowClickListener() {
+    let elbowLimit = 0;
+    let FocusRow = document.getElementsByClassName('highlighted')[0];
+    let thisAlias = '';
+    let aliasSplit = [];
+    for (let i = 0; i < FocusRow.children.length; i++) {
+        if (FocusRow.children[i].className == "badge-photo blue-badge-small") {
+            aliasSplit = (FocusRow.children[i].src).split('=');
+            break;
+        }
+    }
+
+    thisAlias = aliasSplit[1]; // "https://badgephotos.corp.amazon.com/?uid=cctaylor"
+    while (FocusRow != undefined & elbowLimit < 1000) {
+        if (ResetToNewUser(event, thisAlias) != undefined) {
+            FocusRow.children[0].addEventListener('click', function () { ResetToNewUser(event, thisAlias); });
+            FocusRow = FocusRow.previousElementSibling;
+        }
+        elbowLimit++;
+    }
+}
+
+function ResetToNewUser(evt, NewUserAlias) {
+    //Delete the old rows
+    if (document.getElementsByClassName('open-role-row') == undefined) return;
+    var openRoleRows = document.getElementsByClassName('open-role-row');
+    while (openRoleRows[0]) {
+        openRoleRows[0].parentNode.removeChild(openRoleRows[0]);
+    }
+
+
+    //Clear the old data
+    //JobList = [];
+
+    //Call the function with the new username
+    UserAlias = NewUserAlias;
+    doOnce3 = 0;
+}
+//Add rows by calling siblingBefore
+function appendAfter(divToAppend, siblingBefore) {
+    if (siblingBefore.nextSibling) {
+        siblingBefore.parentNode.insertBefore(divToAppend, siblingBefore.nextSibling);
+    } else {
+        siblingBefore.parentNode.appendChild(divToAppend);
+    }
+}
+//Provide feedback for how the tool is being used
+function localUserFind() {
+    let Name = '';
+    //Removed to support non-blue badge employees
+    //if (document.getElementsByClassName('dropdown-menu')[0] != undefined) {
+    //    Name = (document.getElementsByClassName('dropdown-menu')[0]).getElementsByTagName('A')[1].href.replace('https://phonetool.amazon.com/users/', '').replace('https://connect.amazon.com/users/', '').replace('/awards', '').replace('/communities', '').replace('https://admindirectory.corp.amazon.com/users/', '');
+    //} else {
+        if (document.getElementById('edit_user_profile') != undefined)
+            Name = document.getElementById('edit_user_profile').action.replace('https://phonetool.amazon.com/users/', '').replace('https://connect.amazon.com/users/', '').replace('/awards', '').replace('/communities', '').replace('https://admindirectory.corp.amazon.com/users/', '').replace('/users/', '');
+    //}
+    return Name
+}
+function LinkAnalytic(action, subject) {
+    //Check the links clicked frequency and functionality
+    //Uncomment the following string to remove yourself from analytics
+    //return;
+    //
+    //Assign a local user
+    localUser = localUserFind();
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: OpenLarpURL + "/py/webhit_jf_pt.py",
+        data: 'URL=' + window.location.href + '&ACTION=' + action + '&VERSION=' + CodeVersion + '&SUBJECT=' + subject + '&UserName=' + localUser,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            //Nothing is being returned, but it could - e.g. cookies and stored user data
+            //if (response.responseText.indexOf("Logged in as") > -1) {
+            //    location.href = "http://www.example.net/dashboard";
+            //}
+        },
+        onerror: function (response) {
+            let Message = ''; //`<b>Warning:</b> An error occured while connecting to Factorum backend services. The service may be down or you may need to check your connection/VPN`;
+            let desc = "openlarp";
+            UpdateNotify(Message, desc);
+        }
+    });
+
+}
+//Provide feedback for how the tool is being used
+function JobMetaPull(subjectnm) {
+    let url = OpenLarpURL + "/py/pull_jf_pt_research_subject_count.py";
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: url,
+        data: 'URL=' + window.location.href + '&subjectnm=' + subjectnm,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            console.log(url + ':' + response.status);
+            if (response == null) return;
+            if (response.status == 401 || response.status == 405 || response.status == 502) {
+                    return;
+                }
+            if (response.responseText.length > 1) {
+                if (response.responseText.indexOf('Service Unavailable') < 0) {
+                    document.getElementById('JobMeta_' + subjectnm).innerHTML = response.responseText + ' - <a id="Referal_' + subjectnm + '" href="https://account.amazon.jobs/en-US/jobs/' + subjectnm + '/refer" target=_blank> Refer External candidate </a>';
+                }
+            }
+        },
+        onerror: function (response) {
+            let Message = ''; //`<b>Warning:</b> An error occured while connecting to Factorum backend services. The service may be down or you may need to check your connection/VPN`;
+            let desc = "openlarp";
+            UpdateNotify(Message, desc);
+        }
+    });
+}
+//This finds the html tag - used to find the manager's row
+function FindTag(ClassName, PropertyName, PropertyValue) {
+    //Loop through the items of a class to find the one with the property
+    let TagsInClass = document.getElementsByClassName(ClassName);
+    for (let i = 0; i < TagsInClass.length; i++) {
+        if (TagsInClass.item(i).src == PropertyValue) {
+            return TagsInClass.item(i);
+        }
+    }
+    return 0;
+}
+//Creates a new row for the open position
+function CreateNewRow(JobID, OpenRoleLink, JobTitle, JobDescript, JobPosted, JobLocation, Indent, thisUserAlias, visiblecss) {
+    let htmlstring = '';
+
+    htmlstring = `
+        <div id="Indent_` + JobID + `" style="padding-left: ` + Indent + `px; overflow: hidden; transition: all .3s ease-out;" class="org-chart-row open-role-row ShowHide_` + thisUserAlias + ` ` + visiblecss + `">
+            <span id="icon_` + JobID + `" class="level leaf"></span>
+            <img id="img_` + JobID + `" class="badge-photo blue-badge-small" alt="NewRole" src="` + OpenRoleIcon + `" title="Open Role Icon contributor - @silvefla" />
+            <div class="user-information">
+                <div style="max-height:25px;"> ` + OpenRoleLink +
+        `<span>` + JobTitle + ' - <b>Posted: ' + JobPosted + '</b>' + ` - ` + JobLocation + `</span>
+                </div>
+               <span class="additional-attributes"></span>` + JobDescript + `
+            </div>
+        </div>`;
+
+
+    return htmlstring;
+}
+//function displayMapLoc(data) {
+//    var building = data.building.substr(data.building.indexOf('-') + 1);
+//    var search = "Amazon " + building + " building, " + data.city + ", " + data.country;
+//    var deskLoc = (data.building_room ? data.building_room : "");
+//    //var deskMapLink = $(".floor-map-link").attr("href");
+//    //var buildingDetailsLink = $(".building-link").attr("href");
+//    var deskParams = deskLoc.split('.');
+//    var mapWidget = `<div class="well content-well map">
+//           <div class="title">Building Location</div>
+//           <div class="PersonalInfoContact">` +
+//              '<div><a href="">Building: <b>'+building+'</b></a></div>' + //${buildingDetailsLink}
+//              '<div><a href="">Floor: <b>'+ deskParams[1] +'</b></a></div>' + //${deskMapLink}
+//              '<div><a href="">Desk: <b>'+ deskParams[2] + (deskParams[3] ? ("." + deskParams[3]) : "") + '</b></a></div>' + //${deskMapLink}
+//           `</div>
+//           <div class="mapouter">
+//             <div class="gmap_canvas">
+//               <iframe width="480" height="400" id="gmap_canvas" src="https://maps.google.com/maps?q=` + search + `&t=&z=15&ie=UTF8&iwloc=&output=embed" frameborder="0" scrolling="no" marginheight="0" marginwidth="0"></iframe>
+//             </div>
+//           </div>
+//         </div>`;
+//    //$("div.row-fluid.employee").append(mapWidget);
+
+//    let newDiv = document.createElement('div');
+//    newDiv.id = 'Map_Div';
+//    newDiv.innerHTML = mapWidget;
+
+//    let pre_div = document.getElementsByClassName('employee-info')[0]
+//    appendAfter(newDiv, pre_div)
+//}
+
+function placeheaderRow() {
+    //Create the Ad boxes
+    let where_div = document.getElementsByClassName('alert-wrapper')[0]
+    let DetailsDiv = document.createElement('div');
+
+    DetailsDiv.id = 'floating_header';
+    //DetailsDiv.innerHTML = FillPromotedText();
+    DetailsDiv.className = "AdsRoles AdsFloatingHeader";
+    DetailsDiv.style = "display: none; max-width:80% !important;padding-bottom:35px;"
+    where_div.parentNode.insertBefore(DetailsDiv, where_div);
+
+    let DetailsAdd = document.getElementById('floating_header');
+    let PromoDiv = document.createElement('div');
+    PromoDiv.id = 'Promo_floating_header';
+    PromoDiv.style = "display: none; max-width:80% !important;padding-bottom:35px;"
+    PromoDiv.innerHTML = `<div class="closable" style="color:#CCC; font-size: 13px;">
+            Promoted
+            <span style="color: #999;"  title="Uses a complex algorithm to match people to prospective jobs!">&#128712;</span>
+            <span style="color: #999;"  title="Add/Promote an open Req.">
+                <a href="https://diagonalley.corp.amazon.com/PromoIntake.html" target=_blank style="color: #999;font-size: 12px;margin-left: -3px;">&#128320;</a></span>
+            <div id="CloseAds" class="closeX" title="Hide this job">skip</div>
+        </div>`;
+
+
+
+
+    //PromoDiv.style = "display: none;"
+    PromoDiv.className = "closable AdsRoles AdsFloatingPromo";
+    where_div.parentNode.insertBefore(PromoDiv, DetailsAdd);
+
+    //Add the onclick function
+    document.getElementById('CloseAds').addEventListener('click', function () { HideThisAd(); });
+
+    //Check for notifications and alerts
+    AlertText();
+
+    //Turn the Ads no/off
+    AdsViewEvent();
+
+    //Get the ads
+    FillPromotedText();
+}
+
+let PromotedJobList = [];
+function FillPromotedText() {
+    //Pulls the available open Job IDs based on level and location
+    var locaFilter = '';
+    if (LocationFilter != '')
+        locaFilter = '&location=' + LocationFilter;
+
+    //First Pull the Job ID
+    let url = OpenLarpURL + "/py/pull_jf_pt_jobidads2.py";
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: url,
+        data: 'l_level=' + LowLevelFilter + '&h_level=' + HighLevelFilter + locaFilter,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            console.log(url + ':' + response.status);
+            if (response.status == 401 || response.status == 405 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+            } else {
+                if (response == null) return;
+                if (response.responseText.length > 0 && response.responseText.indexOf('404 - File or directo') < 1) {
+                    if (response.responseText.indexOf('Service Unavailable') < 0) {
+                        PromotedJobList = eval('(' + response.responseText + ')');
+
+                        //Order the jobs by applicability and priority
+
+                        let score = 0;
+                        for (var id in PromotedJobList) {
+                            //Set the score container
+                            PromotedJobList[id]['Score'] = [];
+
+                            //Job Description (key words)
+                            //put all the words into an array
+                            let keywords = PromotedJobList[id]['keywords'].split(" ");
+                            //loop through and compare to the job history
+                            for (let i = 1; i < keywords.length; i++) {
+                                //put this history key words into an array
+                                //This isn't always ready when the page loads
+                                let historyKeywords = [];
+                                if (JobHistorydata[0] != undefined) {
+                                    historyKeywords = JobHistorydata[0]['job_title'].split(" ");
+                                } else {
+                                    LoadAttempts++;
+                                    if (LoadAttempts < 5)
+                                        FillPromotedText();
+                                    return;
+                                }
+                                //loop through and compare
+                                for (let j = 1; j < historyKeywords.length; j++) {
+                                    if ((historyKeywords[j]).toUpperCase() == (keywords[i]).toUpperCase())
+                                        score += 100;
+                                }
+                            }
+
+                            //Priority (if any)
+                            if (PromotedJobList[id]['priority'] > 0) {
+                                score += parseInt(PromotedJobList[id]['priority']);
+                            }
+                            PromotedJobList[id]['Score'] = score;
+                            score = 0;
+                        }
+                        GetJobAdData();
+                    }
+                }
+            }
+        },
+        onerror: function (response) {
+            let Message = ''; //`<b>Warning:</b> An error occured while connecting to openlarp.corp.amazon.com. The service may be down or you may need to check your connection/VPN`;
+            let desc = "openlarp";
+            UpdateNotify(Message, desc);
+        }
+    });
+}
+function GetJobAdData() {
+    //Find the highest score and select the job
+    if (AdOverride) return; //Added here to incase the results come back while processing the text above
+    let JobScore = 0;
+    let SelectedJob = ''; //set to the last job ID by default
+    for (let id in PromotedJobList) {
+        if (SelectedJob == '') SelectedJob = id;
+
+        if (PromotedJobList[id]['Score'] > JobScore) {
+            let thisAdShow = true;
+            for (let a = 0; a < Ad_IDshortArray.length; a++) {
+                if (Ad_IDshortArray[a] == id)
+                    thisAdShow = false;
+            }
+            if (thisAdShow) {
+                SelectedJob = id;
+                JobScore = PromotedJobList[id]['Score'];
+            }
+        }
+    }
+
+    //Get the job details for the selected job
+    if (AdsViewCheck == 'checked' && SelectedJob.length > 5) { //Exclude "0" and nulls from request
+
+        let levelFilterstring = '';
+        levelFilterstring = levelFilterstringAssemble();
+
+        let URLString = "https://amazon.jobs/en/internal/search.json?loc_group_id=" + levelFilterstring
+            + "&facets[]=location&facets[]=business_category&facets[]=category&facets[]=schedule_type_id"
+            + "&facets[]=job_function_id&facets[]=hiring_manager&facets[]=job_level&"
+            + "facets[]=relocation_types&facets[]=is_tech&facets[]=is_posted_externally"
+            + "&offset=0&result_limit=20&sort=relevant&latitude=&longitude="
+            + "&loc_query=&base_query=" + SelectedJob + "&city=&country=&region=&county=";
+
+        GM.xmlHttpRequest({
+            method: "GET",
+            url: URLString,
+            onload: function (response) {
+                console.log(URLString + ':' + response.status);
+                if (response.responseText == undefined) return;
+                if (response.responseText.indexOf("DOCTYPE") >= 0) return;
+
+                if (AdOverride) return; //Displaying notifications has priory over ads - this should only happen when ads
+
+                if ((response.responseText).indexOf(SelectedJob) > 1) { //is this the right alias also skips blank returns //"<label class='col-xs-4 snap job-id'>Job ID: 896608</label>"
+                    document.getElementById('floating_header').style = "display: block;"
+                    document.getElementById('Promo_floating_header').style = "display: block;"
+
+                    //turn the returned html into data
+                    let arr = eval('(' + response.responseText + ')');
+                    //let arr = (response.responseText).split("<a");
+                    let thisList = [];
+                    if (arr['jobs'].length >= 1) {
+                        //for (let i = 0; i < arr['jobs'].length; i++) {
+                        thisList = JobfinderHTMLParse(false, arr);
+                        //}
+                    }
+
+                    //Set the data
+                    FilltheAd(thisList);
+                    GetJobAdDetails(SelectedJob);
+                } else {
+                    //UpdateAdIDs();
+
+                    let countofIDs = 0;
+                    for (let id in PromotedJobList) {
+
+                        if (id == SelectedJob) {
+                            let arr = eval('(' + response.responseText + ')');
+
+                            if (arr['hits'] == 0) {
+                                //(response.responseText).indexOf('hits": 0,') > 1) {
+                                //Jobfinder has no job with this ID or it is closed
+
+                                //Disable the job id in JobIDAds
+                                UpdateAdIDs(PromotedJobList[id]['id'], 'Inactive');
+
+                                //Delete the ID from PromotedJobList
+                                delete PromotedJobList[id];
+                            }
+                        }
+
+                        countofIDs++;
+                    }
+                    //Rerun the search
+                    if (countofIDs > 0)
+                        GetJobAdData();
+                }
+            },
+            onerror: function (response) {
+                let Message = ''; //`<b>Warning:</b> An error occured while connecting to amazon.jobs. The service may be down or you may need to check your connection/VPN`;
+                let desc = "amazon.jobs";
+                UpdateNotify(Message, desc);
+            }
+        });
+    }
+}
+function GetJobAdDetails(SelectedJob) {
+    let URLString = "https://www.amazon.jobs/en/internal/search.json?radius=24km&facets[]=location&facets[]=business_category&facets[]=category&facets[]=schedule_type_id&facets[]=job_function_id&facets[]=hiring_manager&facets[]=job_level&facets[]=relocation_types&facets[]=is_tech&facets[]=is_posted_externally&offset=0&result_limit=10&sort=relevant&latitude=&longitude=&loc_group_id=&loc_query=&base_query=" + SelectedJob + "&city=&country=&region=&county=&query_options=&";
+
+    GM.xmlHttpRequest({
+        method: "GET",
+        url: URLString,
+        onload: function (response) {
+            console.log(URLString + ':' + response.status);
+            if (response == null) return;
+            if (response.responseText.length < 1) return;
+
+            let JobReturn = eval('(' + response.responseText + ')');
+            let team = JobReturn['jobs'][0]['company_name'];
+            let department = JobReturn['jobs'][0]['department'];
+            let building = JobReturn['jobs'][0]['building'];
+
+            let ReloDomInt = 'No';
+            let ReloDomExt = 'No';
+            let ReloIntInt = 'No';
+            let ReloIntExt = 'No';
+
+            for (let i = 0; i < JobReturn['jobs'][0]['relocation_types'].length; i++) {
+                if (JobReturn['jobs'][0]['relocation_types'][i] == "Allow domestic relocation for internal transfers") ReloDomInt = 'Yes';
+                if (JobReturn['jobs'][0]['relocation_types'][i] == "Allow domestic relocation for external candidates") ReloDomExt = 'Yes';
+                if (JobReturn['jobs'][0]['relocation_types'][i] == "Allow international relocation for internal transfers") ReloIntInt = 'Yes';
+                if (JobReturn['jobs'][0]['relocation_types'][i] == "Allow international relocation for external candidates") ReloIntExt = 'Yes';
+            }
+
+            //Update the html with the details
+            document.getElementById('Ads_Dept').innerHTML = '<b>Team/Dept: </b>&nbsp; ' + team + '  ' + department;
+            document.getElementById('Ads_Building').innerHTML = '<b>Location: </b>&nbsp; ' + building;
+            document.getElementById('Ads_Relo').innerHTML = '<b>Relocation: </b><span style="color: #999; cursor:help;" >🛈</span>&nbsp; ' + ReloDomInt + ', ' + ReloDomExt + ', ' + ReloIntInt + ', ' + ReloIntExt;
+            document.getElementById('Ads_Relo').title = 'Domestic Internal, Domestic External, International Internal, International External';
+
+
+
+        },
+        onerror: function (response) {
+            return false;
+        }
+    });
+}
+function UpdateAdIDs(Ad_ID, Status) {
+    return;
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: OpenLarpURL + "/py/set_jf_pt_jobidads2.py",
+        data: 'ads_id=' + Ad_ID + '&status=' + Status,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            if (response == null) return;
+        }
+    });
+}
+function FilltheAd(thisList) {
+    if (AdOverride) return; //Displaying notifications has priory over ads
+
+    for (var URLtoID in thisList) {
+        Ad_IDshort = URLtoID; //'Job869757';
+    }
+    Ad_IDshort = URLtoID.substring(3, URLtoID.length - 0); //940521
+
+    let OpenRoleLink = '<div id="Ads_Position"><b>Position: </b>&nbsp;<a id="JobHyper_Ad_' + Ad_IDshort + '" href="https://www.amazon.jobs/en/internal/jobs/' + Ad_IDshort + '?ref=search" target="_blank" title="Amazon Jobs link"> ' + Ad_IDshort + '</a></div>'
+    let JobTitle = thisList[URLtoID]['Title']; //'Salesforce Engineer (Level 5)';
+    let JobTitleArr = JobTitle.split("-");
+    JobTitle = JobTitleArr[0];
+
+    //let JobDescText = thisList[URLtoID]['Description']; //"AWS is seeking a Salesforce Engineer to support...
+    let JobDescript = '<div id="LongDesc_Ad_' + Ad_IDshort + '" class="direct-reports-number AdsLabel_span" >' +
+        '&nbsp;&nbsp;&nbsp;&nbsp;<b>Hiring Manager: </b>&nbsp;<a href="https://phonetool.amazon.com/users/' + thisList[URLtoID]['MangerID'] + '" target=_blank title="Phonetool lookup - ' + thisList[URLtoID]['MangerID'] + '">' + thisList[URLtoID]['Manager'] + '</a>';
+    let benefit = '';
+    if (PromotedJobList[thisList[URLtoID]['JobID']]['smelist'] != '') {
+        //TODO: handle more than 1 name in the list if comma seporated
+        let arrSMEList = PromotedJobList[thisList[URLtoID]['JobID']]['smelist'].split(',');
+        JobDescript += '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>Additional Contact: </b>&nbsp;';
+        for (let i = 0; i < arrSMEList.length; i++) {
+            if (i != 0) JobDescript += ',&nbsp;';
+            let URLSME = arrSMEList[i].replace(/ /g, ""); //make it formatted for the URL
+            JobDescript += '<a href="https://phonetool.amazon.com/search?filter_type=All+fields&query=' + URLSME + '" target=_blank title="Phonetool lookup - ' + URLSME + '">' + arrSMEList[i] + ' </a>'; //https://phonetool.amazon.com/search?filter_type=All+fields&query=Charles%20Taylor
+        }
+    }
+    if (PromotedJobList[thisList[URLtoID]['JobID']]['benefit'] != '') {
+        let title = `title="` + PromotedJobList[thisList[URLtoID]['JobID']]['benefits'] + `"`;
+        //Clear the title if html is found as the '"' causes issues
+        if (PromotedJobList[thisList[URLtoID]['JobID']]['benefits'].indexOf('<') > 0) title = '';
+        JobDescript += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>We're Different: </b>&nbsp" + '<div ' + title + ' style="display: inline;text-overflow: ellipsis;width: 352px;white-space: nowrap;overflow: hidden;">' + PromotedJobList[thisList[URLtoID]['JobID']]['benefits'] + '</div>';
+    }
+    JobDescript += '</div><div id="JobMeta_Ad_' + Ad_IDshort + '" style="font-style: italic;color: grey;font-size: 80%;"></div>';
+    let Refer = '<a id="Referal_Ad_' + Ad_IDshort + '" href="https://account.amazon.jobs/en-US/jobs/' + Ad_IDshort + '/refer" target=_blank title="https://account.amazon.jobs/en-US/jobs/.../refer" style="top: -34px; position: relative; left: 28px;"> Refer External candidate </a>';
+    let JobPosted = thisList[URLtoID]['PostDate']; //'October 16';
+
+
+    let innerHTML = `
+        <div style="position:sticky; font-size: 13px;padding-bottom:35px;">
+            <div id="Indent_Ad_` + Ad_IDshort + `" style="" class="org-chart-row open-role-row">
+                <img id="img_Ad_` + Ad_IDshort + `" style="height: 24px;" class="badge-photo blue-badge-small" alt="NewRole" src="` + OpenRoleIcon + `" title="Open Role Icon contributor - @silvefla" />
+            </div>
+            <div class="user-information" style="position:absolute; top:6; left:10px; width: 100%;">
+                <div id="Ads_PositionID" class="AdsLabel_span"> ` + OpenRoleLink + `</div>
+                <div id="Ads_PositionName" class="AdsLabel_span">` + JobTitle + `</div>
+                <div id="Ads_Dept" class="AdsLabel_span"></div>
+                <div id="Ads_Building" class="AdsLabel_span"></div>
+                <div id="Ads_Relo" class="AdsLabel_span"></div>` +
+        JobDescript +
+        `<div id="Ads_PostDate" >Posted: ` + JobPosted + `</div>
+                <div id="Ads_Refer" >` + Refer + `</b>&nbsp;</div>
+            </div>
+        </div>`;
+
+    if (AdOverride) return; //Added here to incase the results come back while processing the text above
+    document.getElementById('floating_header').innerHTML = innerHTML;
+
+
+    document.getElementById('JobHyper_Ad_' + Ad_IDshort).addEventListener('click', function () { LinkAnalytic('AdClick', Ad_IDshort); });
+}
+
+function HideThisAd() {
+    //TODO: this didn't work
+    //document.getElementById('floating_header').style.overflow = 'hidden';
+    //document.getElementById('floating_header').style.padding = '0';
+    //document.getElementById('floating_header').style.height = '0';
+    //document.getElementById('Promo_floating_header').style.overflow = 'hidden';
+    //document.getElementById('Promo_floating_header').style.padding = '0';
+    //document.getElementById('Promo_floating_header').style.border = '0';
+    //document.getElementById('Promo_floating_header').style.height = '0';
+    //document.getElementById('content').style.marginTop = "-6px";
+    document.getElementById('floating_header').style.display = 'none';
+    document.getElementById('Promo_floating_header').style.display = 'none';
+
+
+    //Hide this ad for good
+    Ad_IDshortArray.push(Ad_IDshort);
+    Ad_IDshortList += "," + Ad_IDshort;
+    localStorage.setItem("Ad_IDshortList", Ad_IDshortList);
+
+    LinkAnalytic('HideAd', Ad_IDshort);
+}
+
+function numberWithCommas(x) {
+    if (isNaN(x)) return 0;
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+let onetime = 0;
+function FindAmazonJobsCookie() {
+    if (onetime > 0) return;
+    onetime++;
+
+    let url = "https://amazon.jobs/en/internal";
+
+    //Prepare the status data
+    let hit_id = '0', user_name = localUser, action_name, value_data, variable_data, url_source = window.location.href;
+    if (user_name == '')
+        user_name = localUserFind();
+    action_name = 'Amazon.jobs auth stage 1';
+    value_data = 'URL: ' + url;
+
+
+    GM.xmlHttpRequest({
+        //synchronous:    false,
+        //method: "HEAD",
+        method: "GET",
+        url: url,
+        redirectionLimit: 0,
+        onload: function (xhr) {
+            url = url + '';
+            if (xhr.finalUrl.indexOf('amazon.jobs') > 0 && xhr.finalUrl.indexOf('error') == -1) {
+                //cookie available
+                doOnce++;
+                LoadReady();
+            } else {
+                const Data_in_html = xhr.responseText;
+                //RelayState
+                let splitRelayName = Data_in_html.split('name="RelayState" value="');
+                if (splitRelayName[1] == undefined) {
+                    TestFor_AmazonJobsAuth();
+                    return;
+                }
+                let RelayState = splitRelayName[1].split('"/>');
+
+                //SAMLResponse
+                let splitArrName = Data_in_html.split('SAMLResponse" value="');
+                let splitArrTrunk = splitArrName[1].split('="');
+                splitArrTrunk = splitArrTrunk[0].split('\\');
+                splitArrTrunk = splitArrTrunk[0].split("\"");
+                //let SAMLResponse = "RelayState=" + encodeURIComponent(RelayState[0]).replace(/&amp;/g, "&") + "&SAMLResponse=" + encodeURIComponent(splitArrTrunk[0]); // + '%3D';
+                  let SAMLResponse = "RelayState=" + RelayState[0].replace(/&amp;/g, "&").replace(/ /g, "%20") + "&SAMLResponse=" + encodeURIComponent(splitArrTrunk[0]); // + '%3D';
+                FollowTheRabbit("https://idp.federate.amazon.com/resources/js/autosubmit.js", SAMLResponse, 'GET');
+
+                action_name += ' - Success';
+                variable_data = 'xhr: ' + JSON.stringify(xhr);
+                Status_Report(hit_id, user_name, action_name, value_data, variable_data, url_source);
+            }
+
+        },
+        onerror: function (xhr) {
+            //Report the error
+            TestFor_AmazonJobsAuth();
+            if (localUserData['subjectnm'] != undefined) {
+                user_name = localUserData['subjectnm'];
+            }
+            action_name += ' - Failure';
+            variable_data = 'xhr: ' + JSON.stringify(xhr);
+            Status_Report(hit_id, user_name, action_name, value_data, variable_data, url_source);
+
+            return false;
+        }
+    });
+
+}
+
+
+
+function FollowTheRabbit(url, param, Metho) {
+    //Prepare the status data
+    let hit_id = '0', user_name = localUser, action_name, value_data, variable_data, url_source = window.location.href;
+    if (user_name == '')
+        user_name = localUserFind();
+    action_name = 'Amazon.jobs auth stage 2';
+    value_data = 'URL: ' + url;
+
+    //Call the API
+    GM.xmlHttpRequest({
+        method: Metho,
+        url: url,
+        headers: {
+            "Origin": "https://idp.federate.amazon.com/",
+            "Upgrade-Insecure-Requests": 1,
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+            "Cache-Control": "max-age=0",
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        data: param,
+        onload: function (xhr) {
+            if (url == 'https://idp.federate.amazon.com/resources/js/autosubmit.js') {
+                FollowTheRabbit("https://amazon.jobs/internal/saml/acs", param, 'POST');
+            } else {
+                doOnce++;
+                LoadReady();
+            }
+            action_name += ' - Success';
+            variable_data = 'Metho: ' + Metho + '; xhr: ' + JSON.stringify(xhr);
+            Status_Report(hit_id, user_name, action_name, value_data, variable_data, url_source);
+        },
+        onerror: function (xhr) {
+            //Report the error
+            TestFor_AmazonJobsAuth();
+            if (localUserData['subjectnm'] != undefined) {
+                user_name = localUserData['subjectnm'];
+            }
+            action_name += ' - Failure';
+            variable_data = 'Metho: ' + Metho + '; xhr: ' + JSON.stringify(xhr);
+            Status_Report(hit_id, user_name, action_name, value_data, variable_data, url_source);
+            ManualOpen();
+
+            return false;
+        }
+    });
+}
+let AlertArray = [];
+let AdOverride = false;
+function AlertText() {
+    //TODO: the python code is not working
+    return;
+    let URLString = OpenLarpURL + "/py/pull_jf_pt_alert.py";
+    //If there is a notice on the server, it displays it
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: URLString,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            console.log(URLString + ':' + response.status);
+            if (response.status == 401 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+            } else {
+                if (response == null  || response.status == 405) return;
+                if (response.responseText.length > 0 && response.responseText.indexOf('404 - File or directo') < 1) {
+                    if (response.responseText.indexOf('Service Unavailable') < 0) {
+                        AlertArray = eval('(' + response.responseText + ')');
+
+                        if (AlertArray.codeversion == undefined) return; //Do nothing if there are no active alerts
+
+                        //Test the code version to see if the add applies
+                        let CleanCodeVersion = CodeVersion.replace(/\./g, '');
+                        let CleanAlertVersion = AlertArray['codeversion'].replace(/\./g, '');
+                        if (CleanAlertVersion < CleanCodeVersion) return;
+
+
+                        AdOverride = true;  //Stop the ads
+                        document.getElementById('Promo_floating_header').style = "display: block;"
+                        document.getElementById('floating_header').style = "display: block;"
+
+                        //Text
+                        document.getElementById('Promo_floating_header').innerHTML = '';
+                        document.getElementById('floating_header').innerHTML = AlertArray['description'];
+
+                        //Styles
+                        let bgcolor = '#FFF';
+                        if (AlertArray['type'] == 'Notification') {
+                            bgcolor = '#FFFF99';
+                        } else if (AlertArray['type'] == 'Alarm') {
+                            bgcolor = '#FFCBCB';
+                        }
+                        document.getElementById('floating_header').style.backgroundColor = bgcolor;
+                        document.getElementById('Promo_floating_header').style.backgroundColor = bgcolor;
+
+
+                    }
+                }
+            }
+        }
+    });
+
+}
+function Status_Report(hit_id, user_name, action_name, value_data, variable_data, url_source) {
+    //TODO: the python code is not working
+    return;
+    let URLString = OpenLarpURL + "/py/set_status_reports.py";
+    //If there is a notice on the server, it displays it
+    GM.xmlHttpRequest({
+        method: "POST",
+        url: URLString,
+        data: 'hit_id=' + hit_id + '&user_name=' + user_name + '&action_name=' + action_name + '&value_data=' + value_data + '&variable_data=' + variable_data + '&url_source=' + url_source,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        onload: function (response) {
+            console.log(URLString + ':' + response.status);
+            if (response.status == 401 || response.status == 502) { //Failed Auth (probably firefox) //server down
+
+            } else {
+                if (response == null) return;
+                if (response.responseText.length > 0 && response.responseText.indexOf('404 - File or directo') < 1) {
+                    if (response.responseText.indexOf('Service Unavailable') < 0) {
+                        let StatusReport = eval('(' + response.responseText + ')');
+                    }
+                }
+            }
+        }
+    });
+
+}
+
+function TestFor_AmazonJobsAuth() {
+    let Message = ''; //`<b>Error:</b> An error occured while trying to connect to <a href="https://amazon.jobs/en/internal/" target=_blank>Amazon.jobs</a>. Please open the <a href="https://amazon.jobs/en/internal/" target=_blank>Amazon.jobs</a> page in another browser window and refresh this page. If you are not connected to the VPN, please connect and try again as this service does not support AEA at this time.`;
+    let desc = "Amazon_jobs_auth";
+    UpdateNotify(Message, desc);
+}
+
+function Get_Accolades(alias) {
+    let URLString = "https://accolades.corp.amazon.com/api/user/" + alias;
+
+    GM.xmlHttpRequest({
+        method: "GET",
+        url: URLString,
+        onload: function (response) {
+            if (response == null) return;
+            if (response.responseText.length < 1) return;
+
+            let AccoladeData = eval('(' + response.responseText + ')');
+            let receivedAccoladeCount = AccoladeData['userProfile']['receivedAccoladeCount'];
+            let sentAccoladeCount = AccoladeData['userProfile']['sentAccoladeCount'];
+
+            if (document.getElementById('Accolade_' + alias) != undefined) {
+                document.getElementById('Accolade_' + alias).innerHTML = `<div style="display:inline-block;"><b><a href="https://accolades.corp.amazon.com/profile/` + alias + `" target="_blank" title="Accolade Profile" style="font-size: 90%;"> Accolades: </a></b><span title="Sent/Received"> ` + sentAccoladeCount + ` / ` + receivedAccoladeCount + `</span></div>`;
+            }
+        },
+        onerror: function (response) {
+            return false;
+        }
+    });
+
+}
+
+function OtherScriptCleanUp() {
+    //Remove all the SPANs of class direct-reports-number
+    //Removes all the SPANs from the "Sort org chart based on level and YOE and add level and YOE to every user" script
+    var paras = document.getElementsByClassName('direct-reports-number');
+
+    for (var i = 0; i < paras.length; i++) {
+        let thisTag = paras[i].nodeName.toLowerCase();
+        let sibling = paras[i].previousElementSibling;
+        if (thisTag != 'div' && sibling.nodeName.toLowerCase() != 'a') {
+            paras[i].style.display = 'none';
+        }
+    }
+}
